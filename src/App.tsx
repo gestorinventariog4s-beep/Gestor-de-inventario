@@ -8,6 +8,7 @@ import { QrReceptionPortal } from './modules/QrReceptionPortal';
 import { AuditModule } from './modules/AuditModule';
 import { UsersModule } from './modules/UsersModule';
 import { LoginModule } from './modules/LoginModule';
+import { BottomToast, type ToastState, type ToastType } from './components/BottomToast';
 import { confirmPublicQrDelivery, downloadPublicActa, fetchPublicProducts, listUsers, login, readSession, registerUser } from './services/api';
 import { 
   AuthResponse, 
@@ -84,6 +85,18 @@ function App() {
   const [publicProducts, setPublicProducts] = useState<Product[]>(MOCK_PRODUCTS);
   const [users, setUsers] = useState<AppUser[]>(MOCK_USERS);
   const [newUserForm, setNewUserForm] = useState(EMPTY_NEW_USER_FORM);
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const showToast = (type: ToastType, message: string) => {
+    setToast({ type, message });
+    window.setTimeout(() => setToast(null), 3500);
+  };
+
+  const getSafeErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.trim()) return error.message;
+    if (typeof error === 'string' && error.trim()) return error;
+    return fallback;
+  };
 
   // Theme Sync
   useEffect(() => {
@@ -140,6 +153,9 @@ function App() {
     try {
       const authenticatedSession = await login(credentials.username, credentials.password);
       setSession(authenticatedSession);
+      showToast('success', 'Sesion iniciada correctamente.');
+    } catch (error) {
+      showToast('error', getSafeErrorMessage(error, 'No fue posible iniciar sesion.'));
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +180,7 @@ function App() {
 
   const handleSubmitNewUser = async () => {
     if (!session || session.role !== 'ADMIN') {
-      alert('Solo un usuario ADMIN puede crear nuevos usuarios.');
+      showToast('error', 'Solo un usuario ADMIN puede crear nuevos usuarios.');
       return;
     }
 
@@ -176,7 +192,7 @@ function App() {
     };
 
     if (!payload.username || !payload.fullName || !payload.password) {
-      alert('Completa nombre, usuario y contraseña.');
+      showToast('error', 'Completa nombre, usuario y contrasena.');
       return;
     }
 
@@ -186,10 +202,9 @@ function App() {
       const refreshedUsers = await listUsers(session, handleLogout);
       setUsers(refreshedUsers);
       setNewUserForm(EMPTY_NEW_USER_FORM);
-      alert('Usuario creado correctamente.');
+      showToast('success', 'Usuario creado correctamente.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo crear el usuario.';
-      alert(message);
+      showToast('error', getSafeErrorMessage(error, 'No se pudo crear el usuario.'));
     } finally {
       setIsLoading(false);
     }
@@ -272,6 +287,7 @@ function App() {
         {activeModule === 'entregas' && (
           <DeliveriesModule 
             products={publicProducts} 
+            onNotify={showToast}
             onSubmitDelivery={async (payload) => {
                setIsLoading(true);
                try {
@@ -288,7 +304,11 @@ function App() {
                     giverFullName: payload.giverFullName,
                     evidencePhotos: payload.evidencePhotos
                   });
+                  showToast('success', 'Entrega confirmada y acta generada.');
                   return response;
+               } catch (error) {
+                 showToast('error', getSafeErrorMessage(error, 'No se pudo confirmar la entrega.'));
+                 throw error;
                } finally {
                  setIsLoading(false);
                }
@@ -323,6 +343,8 @@ function App() {
           />
         )}
       </main>
+
+      <BottomToast toast={toast} />
     </div>
   );
 }

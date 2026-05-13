@@ -13,7 +13,7 @@ interface UsersModuleProps {
   users: AppUser[];
   newUserForm: { username: string; password: string; fullName: string; role: UserRole };
   setNewUserForm: (v: { username: string; password: string; fullName: string; role: UserRole }) => void;
-  onSubmitNewUser: (e: React.FormEvent) => Promise<void>;
+  onSubmitNewUser: () => Promise<void>;
   isLoading: boolean;
 }
 

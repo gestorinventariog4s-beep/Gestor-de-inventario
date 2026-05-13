@@ -23,9 +23,11 @@ import { Product } from '../types';
 import * as api from '../services/api';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import { ActaReportPDF } from '../components/ActaReportPDF';
+import type { ToastType } from '../components/BottomToast';
 
 interface DeliveriesModuleProps {
   products: Product[];
+  onNotify?: (type: ToastType, message: string) => void;
   onSubmitDelivery: (delivery: { 
     employeeFullName: string;
     employeeDocument: string;
@@ -43,6 +45,7 @@ interface DeliveriesModuleProps {
 
 export const DeliveriesModule: React.FC<DeliveriesModuleProps> = ({
   products,
+  onNotify,
   onSubmitDelivery,
   isLoading
 }) => {
@@ -600,7 +603,7 @@ export const DeliveriesModule: React.FC<DeliveriesModuleProps> = ({
                            setShowSuccessModal(true);
                            
                          } catch (e) {
-                           alert("Error al finalizar la entrega.");
+                           onNotify?.('error', 'Error al finalizar la entrega.');
                          }
                        }}
                        disabled={isLoading || !signatureDataUrl || evidencePhotos.length === 0 || !giverSignature}
