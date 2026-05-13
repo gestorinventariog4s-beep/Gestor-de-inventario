@@ -3,11 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package,
   RefreshCw,
-  ShieldCheck,
   Lock,
   User,
-  ArrowRight,
-  Info
+  ArrowRight
 } from 'lucide-react';
 
 interface LoginModuleProps {
