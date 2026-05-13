@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { 
   Users as UsersIcon, 
   UserPlus, 
-  MoreHorizontal,
   UserCheck,
   Mail,
   Lock,
