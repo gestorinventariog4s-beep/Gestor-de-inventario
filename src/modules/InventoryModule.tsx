@@ -13,7 +13,6 @@ import {
   Plus,
   Search,
   Trash2,
-  TrendingUp,
   X,
 } from 'lucide-react';
 import { Product, ProductPayload, StockAlert } from '../types';

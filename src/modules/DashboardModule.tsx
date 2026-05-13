@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Activity, 
-  TrendingUp, 
+  TrendingUp,
   AlertTriangle, 
   Users as UsersIcon,
   Package,
-  Clock
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -26,6 +25,7 @@ interface DashboardModuleProps {
   users: AppUser[];
   demand: DashboardDemandResponse | null;
   realTimeData: Array<{ time: string; value: number }>;
+  isDarkMode: boolean;
 }
 
 interface StatIslandProps {
@@ -60,11 +60,10 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
   returns,
   users,
   demand,
-  realTimeData
+  realTimeData,
+  isDarkMode
 }) => {
   const [period, setPeriod] = useState<'hoy' | 'semana' | 'mes'>('semana');
-  // Simple check for dark mode via class on html/body or state. Assuming App provides it but we can detect it.
-  const isDarkMode = document.documentElement.classList.contains('dark');
 
   return (
     <div className="space-y-6 animate-fade pb-10">

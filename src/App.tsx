@@ -450,6 +450,7 @@ function App() {
             users={users} 
             demand={null} 
             realTimeData={[{ time: '10:00', value: 5 }, { time: '11:00', value: 12 }]}
+            isDarkMode={isDarkMode}
           />
         )}
         {activeModule === 'inventario' && (

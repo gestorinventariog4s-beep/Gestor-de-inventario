@@ -208,7 +208,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({
               className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-[1.5rem] shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-4 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none mt-10"
               type="submit"
               disabled={isBusy}
-              whileHover={{ y: -2, shadow: '0 25px 50px -12px rgba(37, 99, 235, 0.5)' }}
+              whileHover={{ y: -2, boxShadow: '0 25px 50px -12px rgba(37, 99, 235, 0.5)' }}
             >
               {isBusy ? (
                 <RefreshCw className="animate-spin" />
