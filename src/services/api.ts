@@ -1,4 +1,4 @@
-import type { AppUser, AuthResponse, DeliveryResultResponse, Product, UserRole } from '../types';
+import type { AppUser, AuthResponse, DeliveryResultResponse, Product, ProductPayload, StockAlert, UserRole } from '../types';
 
 const STORAGE_KEY = 'gestion-dotacion-auth';
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
@@ -106,6 +106,38 @@ export const publicFetch = async <T>(path: string, options?: globalThis.RequestI
 
 export const fetchPublicProducts = () => publicFetch<Product[]>('/api/public/products');
 
+export const fetchInventoryProducts = (session: AuthResponse | null, onLogout: () => void) =>
+  authFetch<Product[]>('/api/inventory/products', session, onLogout);
+
+export const fetchInventoryAlerts = (session: AuthResponse | null, onLogout: () => void) =>
+  authFetch<StockAlert[]>('/api/inventory/alerts', session, onLogout);
+
+export const createInventoryProduct = (
+  payload: ProductPayload,
+  session: AuthResponse | null,
+  onLogout: () => void,
+) =>
+  authFetch<Product>('/api/inventory/products', session, onLogout, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const updateInventoryProduct = (
+  id: number,
+  payload: ProductPayload,
+  session: AuthResponse | null,
+  onLogout: () => void,
+) =>
+  authFetch<Product>(`/api/inventory/products/${id}`, session, onLogout, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
+export const deleteInventoryProduct = (id: number, session: AuthResponse | null, onLogout: () => void) =>
+  authFetch<void>(`/api/inventory/products/${id}`, session, onLogout, {
+    method: 'DELETE',
+  });
+
 export const confirmPublicQrDelivery = (payload: {
   qrToken: string;
   employeeFullName: string;
@@ -204,11 +236,11 @@ export const listUsers = (session: AuthResponse | null, onLogout: () => void) =>
   authFetch<AppUser[]>('/api/admin/users', session, onLogout);
 
 export const registerUser = (
-  payload: { username: string; fullName: string; password: string; role: UserRole },
+  payload: { document: string; fullName: string; password: string; role: UserRole },
   session: AuthResponse | null,
   onLogout: () => void,
 ) =>
-  authFetch<{ id: number; username: string; role: UserRole }>('/api/auth/register', session, onLogout, {
+  authFetch<{ id: number; username: string; document: string; fullName: string; role: UserRole }>('/api/auth/register', session, onLogout, {
     method: 'POST',
     body: JSON.stringify(payload),
   });

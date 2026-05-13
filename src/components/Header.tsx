@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'qr' as ModuleId, label: 'Mi QR', icon: QrCode },
     { id: 'auditoria' as ModuleId, label: 'Auditoría', icon: BarChart3 },
     { id: 'usuarios' as ModuleId, label: 'Talento', icon: Users },
-  ];
+  ].filter((item) => (item.id === 'usuarios' ? session.role === 'ADMIN' : true));
 
   return (
     <header className="sticky top-0 z-[100] px-4 md:px-8 py-8 flex justify-center w-full bg-transparent">
@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <div className="text-right hidden md:block">
-            <p className={`text-base font-black leading-none ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{session.username}</p>
+            <p className={`text-base font-black leading-none ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>{session.fullName || session.username}</p>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1.5">{session.role}</p>
           </div>
 

@@ -11,8 +11,8 @@ import { AppUser, UserRole } from '../types';
 
 interface UsersModuleProps {
   users: AppUser[];
-  newUserForm: { username: string; password: string; fullName: string; role: UserRole };
-  setNewUserForm: (v: { username: string; password: string; fullName: string; role: UserRole }) => void;
+  newUserForm: { document: string; password: string; fullName: string; role: UserRole };
+  setNewUserForm: (v: { document: string; password: string; fullName: string; role: UserRole }) => void;
   onSubmitNewUser: () => Promise<void>;
   isLoading: boolean;
 }
@@ -82,8 +82,8 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input 
                       className="w-full bg-slate-100 dark:bg-white/5 border-none rounded-2xl py-3.5 pl-10 pr-4 text-[10px] font-black text-slate-900 dark:text-white outline-none"
-                      placeholder="ID Usuario..." value={newUserForm.username} 
-                      onChange={(e) => setNewUserForm({...newUserForm, username: e.target.value})} required 
+                      placeholder="Documento ID..." value={newUserForm.document} 
+                      onChange={(e) => setNewUserForm({...newUserForm, document: e.target.value})} required 
                     />
                   </div>
                   <select 
@@ -157,7 +157,7 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <code className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-600/10 px-4 py-1.5 rounded-xl border border-blue-600/10">@{u.username}</code>
+                    <code className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-600/10 px-4 py-1.5 rounded-xl border border-blue-600/10">#{u.document ?? u.username}</code>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <button className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"><MoreHorizontal size={20} /></button>

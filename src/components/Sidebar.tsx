@@ -12,7 +12,7 @@ interface SidebarProps {
   modules: ModuleId[];
   moduleLabels: Record<ModuleId, string>;
   moduleIcons: Record<ModuleId, React.ReactNode>;
-  session: { username: string; role: UserRole };
+  session: { username: string; fullName?: string; role: UserRole };
   onLogout: () => void;
 }
 
@@ -54,10 +54,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="sidebar-footer">
         <div className="user-profile">
           <div className="user-avatar">
-            {session.username.charAt(0).toUpperCase()}
+            {(session.fullName || session.username).charAt(0).toUpperCase()}
           </div>
           <div className="user-info">
-            <p className="u-name">{session.username}</p>
+            <p className="u-name">{session.fullName || session.username}</p>
             <p className="u-role">{session.role}</p>
           </div>
         </div>

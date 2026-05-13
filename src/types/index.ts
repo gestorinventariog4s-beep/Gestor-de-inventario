@@ -4,6 +4,7 @@ export type ModuleId = 'resumen' | 'inventario' | 'entregas' | 'qr' | 'reportes'
 export interface AuthResponse {
   token: string;
   username: string;
+  fullName: string;
   role: UserRole;
 }
 
@@ -20,6 +21,7 @@ export interface Product {
   type: string;
   talla?: string;
   color?: string;
+  photoUrl?: string;
   stock: number;
   stockMinimo: number;
   stockMaximo: number;
@@ -33,6 +35,7 @@ export interface ProductPayload {
   type: string;
   talla?: string;
   color?: string;
+  photoUrl?: string;
   stock: number;
   stockMinimo: number;
   stockMaximo: number;
@@ -101,6 +104,7 @@ export interface AuditLog {
 export interface AppUser {
   id: number;
   username: string;
+  document?: string;
   fullName: string;
   role: UserRole;
 }

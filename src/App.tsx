@@ -9,12 +9,27 @@ import { AuditModule } from './modules/AuditModule';
 import { UsersModule } from './modules/UsersModule';
 import { LoginModule } from './modules/LoginModule';
 import { BottomToast, type ToastState, type ToastType } from './components/BottomToast';
-import { confirmPublicQrDelivery, downloadPublicActa, fetchPublicProducts, listUsers, login, readSession, registerUser } from './services/api';
+import {
+  confirmPublicQrDelivery,
+  createInventoryProduct,
+  deleteInventoryProduct,
+  downloadPublicActa,
+  fetchInventoryAlerts,
+  fetchInventoryProducts,
+  fetchPublicProducts,
+  listUsers,
+  login,
+  readSession,
+  registerUser,
+  updateInventoryProduct,
+} from './services/api';
 import { 
   AuthResponse, 
   ModuleId, 
   Product, 
+  ProductPayload,
   AppUser,
+  StockAlert,
   UserRole,
 } from './types';
 
@@ -53,8 +68,8 @@ const MOCK_USERS: AppUser[] = [
   { id: 2, username: 'op01', fullName: 'Juan Pérez', role: 'OPERADOR' },
 ];
 
-const EMPTY_NEW_USER_FORM: { username: string; password: string; fullName: string; role: UserRole } = {
-  username: '',
+const EMPTY_NEW_USER_FORM: { document: string; password: string; fullName: string; role: UserRole } = {
+  document: '',
   password: '',
   fullName: '',
   role: 'OPERADOR',
@@ -83,6 +98,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(initialPublicReceptionState.isPublicReception);
   const [publicReceptionState, setPublicReceptionState] = useState(initialPublicReceptionState);
   const [publicProducts, setPublicProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [inventoryProducts, setInventoryProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [inventoryAlerts, setInventoryAlerts] = useState<StockAlert[]>([]);
+  const [inventorySaving, setInventorySaving] = useState(false);
   const [users, setUsers] = useState<AppUser[]>(MOCK_USERS);
   const [newUserForm, setNewUserForm] = useState(EMPTY_NEW_USER_FORM);
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -167,6 +185,28 @@ function App() {
   };
 
   useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    const refreshInventory = async () => {
+      try {
+        const [products, alerts] = await Promise.all([
+          fetchInventoryProducts(session, handleLogout),
+          fetchInventoryAlerts(session, handleLogout),
+        ]);
+        setInventoryProducts(products);
+        setInventoryAlerts(alerts);
+      } catch {
+        setInventoryProducts(MOCK_PRODUCTS);
+        setInventoryAlerts([]);
+      }
+    };
+
+    void refreshInventory();
+  }, [session]);
+
+  useEffect(() => {
     if (!session || session.role !== 'ADMIN') {
       return;
     }
@@ -185,14 +225,14 @@ function App() {
     }
 
     const payload = {
-      username: newUserForm.username.trim(),
+      document: newUserForm.document.trim(),
       fullName: newUserForm.fullName.trim(),
       password: newUserForm.password,
       role: newUserForm.role,
     };
 
-    if (!payload.username || !payload.fullName || !payload.password) {
-      showToast('error', 'Completa nombre, usuario y contrasena.');
+    if (!payload.document || !payload.fullName || !payload.password) {
+      showToast('error', 'Completa documento, nombre y contrasena.');
       return;
     }
 
@@ -207,6 +247,75 @@ function App() {
       showToast('error', getSafeErrorMessage(error, 'No se pudo crear el usuario.'));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddInventoryProduct = async (payload: ProductPayload) => {
+    if (!session) {
+      showToast('error', 'Sesion no disponible.');
+      return;
+    }
+    setInventorySaving(true);
+    try {
+      await createInventoryProduct(payload, session, handleLogout);
+      const [products, alerts] = await Promise.all([
+        fetchInventoryProducts(session, handleLogout),
+        fetchInventoryAlerts(session, handleLogout),
+      ]);
+      setInventoryProducts(products);
+      setInventoryAlerts(alerts);
+      showToast('success', 'Producto creado correctamente.');
+    } catch (error) {
+      showToast('error', getSafeErrorMessage(error, 'No se pudo crear el producto.'));
+      throw error;
+    } finally {
+      setInventorySaving(false);
+    }
+  };
+
+  const handleEditInventoryProduct = async (id: number, payload: ProductPayload) => {
+    if (!session) {
+      showToast('error', 'Sesion no disponible.');
+      return;
+    }
+    setInventorySaving(true);
+    try {
+      await updateInventoryProduct(id, payload, session, handleLogout);
+      const [products, alerts] = await Promise.all([
+        fetchInventoryProducts(session, handleLogout),
+        fetchInventoryAlerts(session, handleLogout),
+      ]);
+      setInventoryProducts(products);
+      setInventoryAlerts(alerts);
+      showToast('success', 'Producto actualizado correctamente.');
+    } catch (error) {
+      showToast('error', getSafeErrorMessage(error, 'No se pudo actualizar el producto.'));
+      throw error;
+    } finally {
+      setInventorySaving(false);
+    }
+  };
+
+  const handleDeleteInventoryProduct = async (id: number) => {
+    if (!session) {
+      showToast('error', 'Sesion no disponible.');
+      return;
+    }
+    setInventorySaving(true);
+    try {
+      await deleteInventoryProduct(id, session, handleLogout);
+      const [products, alerts] = await Promise.all([
+        fetchInventoryProducts(session, handleLogout),
+        fetchInventoryAlerts(session, handleLogout),
+      ]);
+      setInventoryProducts(products);
+      setInventoryAlerts(alerts);
+      showToast('success', 'Producto desactivado correctamente.');
+    } catch (error) {
+      showToast('error', getSafeErrorMessage(error, 'No se pudo eliminar el producto.'));
+      throw error;
+    } finally {
+      setInventorySaving(false);
     }
   };
 
@@ -265,8 +374,8 @@ function App() {
       <main className="max-w-[1700px] mx-auto px-4 md:px-8 pt-4">
         {activeModule === 'resumen' && (
           <DashboardModule 
-            products={MOCK_PRODUCTS} 
-            alerts={[]} 
+            products={inventoryProducts} 
+            alerts={inventoryAlerts} 
             returns={[]} 
             users={users} 
             demand={null} 
@@ -275,13 +384,13 @@ function App() {
         )}
         {activeModule === 'inventario' && (
           <InventoryModule 
-            products={MOCK_PRODUCTS} 
-            alerts={[]} 
-            onAddProduct={async () => {}} 
-            onEditProduct={() => {}} 
-            onDeleteProduct={async () => {}} 
+            products={inventoryProducts} 
+            alerts={inventoryAlerts} 
+            onAddProduct={handleAddInventoryProduct} 
+            onEditProduct={handleEditInventoryProduct} 
+            onDeleteProduct={handleDeleteInventoryProduct} 
             onBulkAddProducts={async () => {}}
-            isLoading={false}
+            isLoading={inventorySaving}
           />
         )}
         {activeModule === 'entregas' && (
@@ -318,7 +427,7 @@ function App() {
         )}
         {activeModule === 'qr' && (
           <QrModule
-            products={MOCK_PRODUCTS}
+            products={inventoryProducts}
             onConfirmReception={handleConfirmQrReception}
             onDownloadActa={handleDownloadActa}
             isLoading={isLoading}
@@ -339,7 +448,7 @@ function App() {
             newUserForm={newUserForm} 
             setNewUserForm={setNewUserForm} 
             onSubmitNewUser={handleSubmitNewUser} 
-            isLoading={isLoading} 
+            isLoading={isLoading || session.role !== 'ADMIN'} 
           />
         )}
       </main>
