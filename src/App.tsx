@@ -21,6 +21,9 @@ import {
   login,
   readSession,
   registerUser,
+  deleteUser,
+  suspendUser,
+  updateUser,
   updateInventoryProduct,
 } from './services/api';
 import { 
@@ -184,6 +187,12 @@ function App() {
     setSession(null);
   };
 
+  const refreshUsers = async () => {
+    if (!session || session.role !== 'ADMIN') return;
+    const response = await listUsers(session, handleLogout);
+    setUsers(response);
+  };
+
   useEffect(() => {
     if (!session) {
       return;
@@ -211,8 +220,7 @@ function App() {
       return;
     }
 
-    void listUsers(session, handleLogout)
-      .then((response) => setUsers(response))
+    void refreshUsers()
       .catch(() => {
         setUsers(MOCK_USERS);
       });
@@ -245,6 +253,68 @@ function App() {
       showToast('success', 'Usuario creado correctamente.');
     } catch (error) {
       showToast('error', getSafeErrorMessage(error, 'No se pudo crear el usuario.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateUser = async (id: number, payload: { document: string; fullName: string; password?: string; role: UserRole }) => {
+    if (!session || session.role !== 'ADMIN') {
+      showToast('error', 'Solo un usuario ADMIN puede editar usuarios.');
+      return;
+    }
+
+    if (payload.document.trim() === session.username) {
+      showToast('error', 'No puedes editar tu propio documento desde esta pantalla.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await updateUser(id, payload, session, handleLogout);
+      await refreshUsers();
+      showToast('success', 'Usuario actualizado correctamente.');
+    } catch (error) {
+      showToast('error', getSafeErrorMessage(error, 'No se pudo actualizar el usuario.'));
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSuspendUser = async (id: number) => {
+    if (!session || session.role !== 'ADMIN') {
+      showToast('error', 'Solo un usuario ADMIN puede suspender usuarios.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await suspendUser(id, session, handleLogout);
+      await refreshUsers();
+      showToast('success', 'Usuario suspendido correctamente.');
+    } catch (error) {
+      showToast('error', getSafeErrorMessage(error, 'No se pudo suspender el usuario.'));
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: number) => {
+    if (!session || session.role !== 'ADMIN') {
+      showToast('error', 'Solo un usuario ADMIN puede eliminar usuarios.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await deleteUser(id, session, handleLogout);
+      await refreshUsers();
+      showToast('success', 'Usuario eliminado correctamente.');
+    } catch (error) {
+      showToast('error', getSafeErrorMessage(error, 'No se pudo eliminar el usuario.'));
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -448,6 +518,9 @@ function App() {
             newUserForm={newUserForm} 
             setNewUserForm={setNewUserForm} 
             onSubmitNewUser={handleSubmitNewUser} 
+            onUpdateUser={handleUpdateUser}
+            onSuspendUser={handleSuspendUser}
+            onDeleteUser={handleDeleteUser}
             isLoading={isLoading || session.role !== 'ADMIN'} 
           />
         )}

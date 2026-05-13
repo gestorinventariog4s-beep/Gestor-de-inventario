@@ -1,4 +1,4 @@
-import type { AppUser, AuthResponse, DeliveryResultResponse, Product, ProductPayload, StockAlert, UserRole } from '../types';
+import type { AppUser, AuthResponse, DeliveryResultResponse, Product, ProductPayload, StockAlert, UpdateUserPayload, UserRole } from '../types';
 
 const STORAGE_KEY = 'gestion-dotacion-auth';
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
@@ -243,6 +243,27 @@ export const registerUser = (
   authFetch<{ id: number; username: string; document: string; fullName: string; role: UserRole }>('/api/auth/register', session, onLogout, {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+
+export const updateUser = (
+  id: number,
+  payload: UpdateUserPayload,
+  session: AuthResponse | null,
+  onLogout: () => void,
+) =>
+  authFetch<AppUser>(`/api/admin/users/${id}`, session, onLogout, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
+export const suspendUser = (id: number, session: AuthResponse | null, onLogout: () => void) =>
+  authFetch<AppUser>(`/api/admin/users/${id}/suspend`, session, onLogout, {
+    method: 'PATCH',
+  });
+
+export const deleteUser = (id: number, session: AuthResponse | null, onLogout: () => void) =>
+  authFetch<void>(`/api/admin/users/${id}`, session, onLogout, {
+    method: 'DELETE',
   });
 
 export interface EmployeeProfile {

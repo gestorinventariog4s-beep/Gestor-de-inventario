@@ -28,17 +28,25 @@ interface InventoryManagerProps {
   isLoading: boolean;
 }
 
+const ARTICLE_TYPES = [
+  { id: 'Camisa', label: '👕 Camisa', sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] },
+  { id: 'Pantalones', label: '👖 Pantalones', sizes: ['28', '30', '32', '34', '36', '38', '40', '42'] },
+  { id: 'Calzado', label: '🥾 Calzado (Botas, Tenis, Zapatos)', sizes: ['35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45'] },
+  { id: 'Sastreria', label: '👔 Sastrería (Flus / Sacos / Blazers)', sizes: ['34', '36', '38', '40', '42', '44', '46', '48'] },
+  { id: 'Otros', label: '📦 Otros / Accesorios', sizes: ['UNICA', 'S', 'M', 'L', 'XL'] },
+];
+
 const EMPTY_FORM: ProductPayload = {
   sku: '',
   name: '',
-  type: '',
+  type: ARTICLE_TYPES[0].id,
   talla: '',
   color: '',
   photoUrl: '',
   stock: 1,
   stockMinimo: 1,
   stockMaximo: 2,
-  categoryName: '',
+  categoryName: 'Dotación',
   categoryDescription: '',
 };
 
@@ -119,12 +127,23 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
     reader.readAsDataURL(file);
   };
 
+  const toggleSize = (size: string) => {
+    const currentSizes = parseSizes(form.talla);
+    let newSizes: string[];
+    if (currentSizes.includes(size)) {
+      newSizes = currentSizes.filter((s) => s !== size);
+    } else {
+      newSizes = [...currentSizes, size];
+    }
+    setForm((prev) => ({ ...prev, talla: newSizes.join(', ') }));
+  };
+
   const handleSaveProduct = async () => {
     if (!form.sku.trim() || !form.name.trim() || !form.type.trim() || !form.categoryName.trim()) {
       return;
     }
 
-    if (form.stockMinimo >= form.stockMaximo || form.stock < form.stockMinimo || form.stock > form.stockMaximo) {
+    if (form.stockMinimo >= form.stockMaximo) {
       return;
     }
 
@@ -275,7 +294,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                     </div>
                   </div>
                   <span className="bg-blue-50 dark:bg-white/10 text-blue-600 dark:text-slate-400 text-[8px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest border border-blue-100 dark:border-white/5">
-                    {p.category?.name || 'GENERAL'}
+                    {ARTICLE_TYPES.find(t => t.id === p.type)?.label || p.type || 'GENERAL'}
                   </span>
                 </div>
 
@@ -363,7 +382,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                       <td className="px-6 py-5">
                         <div className="min-w-0">
                           <p className="font-black text-blue-950 dark:text-white text-sm leading-tight truncate">{p.name}</p>
-                          <span className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest">{p.sku}</span>
+                          <span className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest">{p.sku} • {ARTICLE_TYPES.find(t => t.id === p.type)?.label || p.type}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5">
@@ -407,56 +426,186 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-sm p-4 flex items-center justify-center"
+            className="fixed inset-0 z-[1000] bg-blue-950/40 backdrop-blur-md p-4 flex items-center justify-center overflow-y-auto"
           >
             <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              className="w-full max-w-2xl rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl p-6"
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="w-full max-w-3xl rounded-[2.5rem] bg-white dark:bg-slate-900 border border-white dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] p-8 my-8 relative"
             >
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-black text-blue-900 dark:text-white tracking-tight">
-                  {editingProductId == null ? 'Nuevo Producto' : 'Editar Producto'}
-                </h3>
-                <button onClick={closeEditor} className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-500">
-                  <X size={16} />
+              <div className="flex items-center justify-between mb-8">
+                <div className="space-y-1">
+                  <h3 className="text-2xl font-black text-blue-950 dark:text-white tracking-tighter">
+                    {editingProductId == null ? 'Registrar Dotación' : 'Actualizar Producto'}
+                  </h3>
+                  <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
+                    Panel de Gestión de Inventario Inteligente
+                  </p>
+                </div>
+                <button 
+                  onClick={closeEditor} 
+                  className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-white/5 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"
+                >
+                  <X size={20} strokeWidth={3} />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="SKU" value={form.sku} onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="Nombre" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="Tipo" value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="Tallas (S,M,L)" value={form.talla} onChange={(e) => setForm((prev) => ({ ...prev, talla: e.target.value }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="Color" value={form.color} onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="Categoria" value={form.categoryName} onChange={(e) => setForm((prev) => ({ ...prev, categoryName: e.target.value }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" type="number" min={1} placeholder="Stock" value={form.stock} onChange={(e) => setForm((prev) => ({ ...prev, stock: Number(e.target.value) || 1 }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" type="number" min={1} placeholder="Stock minimo" value={form.stockMinimo} onChange={(e) => setForm((prev) => ({ ...prev, stockMinimo: Number(e.target.value) || 1 }))} />
-                <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold md:col-span-2" type="number" min={2} placeholder="Stock maximo" value={form.stockMaximo} onChange={(e) => setForm((prev) => ({ ...prev, stockMaximo: Number(e.target.value) || 2 }))} />
-
-                <div className="md:col-span-2 border border-dashed border-blue-200 rounded-2xl p-4 bg-blue-50/40 dark:bg-white/5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Foto del producto</p>
-                    <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer">
-                      <ImagePlus size={14} /> Subir
-                      <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-                    </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column: Core Info */}
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Identificador SKU</label>
+                    <input 
+                      className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
+                      placeholder="Ej: D311141001" 
+                      value={form.sku} 
+                      onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value.toUpperCase() }))} 
+                    />
                   </div>
-                  {form.photoUrl ? (
-                    <img src={form.photoUrl} alt="preview" className="mt-3 w-full h-40 object-cover rounded-xl border border-blue-100" />
-                  ) : (
-                    <div className="mt-3 w-full h-24 rounded-xl border border-blue-100 bg-white/70 dark:bg-white/5 flex items-center justify-center text-slate-400 text-xs font-bold">
-                      Sin foto
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nombre Comercial</label>
+                    <input 
+                      className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
+                      placeholder="Ej: Camisa Slim Fit Premium" 
+                      value={form.name} 
+                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Categoría de Artículo</label>
+                    <div className="relative">
+                      <select 
+                        className="w-full appearance-none bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer"
+                        value={form.type}
+                        onChange={(e) => {
+                          const newType = e.target.value;
+                          setForm((prev) => ({ 
+                            ...prev, 
+                            type: newType,
+                            talla: '' // Reset sizes when type changes
+                          }));
+                        }}
+                      >
+                        {ARTICLE_TYPES.map(type => (
+                          <option key={type.id} value={type.id}>{type.label}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-blue-500">
+                        <Package size={16} />
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Color</label>
+                      <input 
+                        className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white outline-none" 
+                        placeholder="Ej: Azul Marino" 
+                        value={form.color} 
+                        onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Grupo</label>
+                      <input 
+                        className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white outline-none" 
+                        placeholder="Ej: Operativos" 
+                        value={form.categoryName} 
+                        onChange={(e) => setForm((prev) => ({ ...prev, categoryName: e.target.value }))} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Dynamic Sizes & Stock */}
+                <div className="space-y-5">
+                  <div className="space-y-3 bg-blue-50/30 dark:bg-white/5 p-6 rounded-[2rem] border border-blue-100 dark:border-white/10">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                      <List size={14} /> Tallas Disponibles
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {ARTICLE_TYPES.find(t => t.id === form.type)?.sizes.map(size => {
+                        const isSelected = parseSizes(form.talla).includes(size);
+                        return (
+                          <button
+                            key={size}
+                            onClick={() => toggleSize(size)}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                              isSelected 
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none scale-105' 
+                                : 'bg-white dark:bg-white/10 text-blue-400 border border-blue-100 dark:border-transparent hover:border-blue-400'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="pt-2">
+                      <input 
+                        className="w-full bg-transparent border-none p-0 text-[10px] font-bold text-slate-400 outline-none"
+                        placeholder="O escribe tallas separadas por coma..."
+                        value={form.talla}
+                        onChange={(e) => setForm(prev => ({ ...prev, talla: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Actual</label>
+                      <input type="number" className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-4 py-4 text-sm font-black text-blue-600 text-center" value={form.stock} onChange={(e) => setForm(prev => ({ ...prev, stock: Number(e.target.value) }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Mínimo</label>
+                      <input type="number" className="w-full bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20 rounded-2xl px-4 py-4 text-sm font-black text-rose-600 text-center" value={form.stockMinimo} onChange={(e) => setForm(prev => ({ ...prev, stockMinimo: Number(e.target.value) }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Máximo</label>
+                      <input type="number" className="w-full bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl px-4 py-4 text-sm font-black text-emerald-600 text-center" value={form.stockMaximo} onChange={(e) => setForm(prev => ({ ...prev, stockMaximo: Number(e.target.value) }))} />
+                    </div>
+                  </div>
+
+                  <div className="relative group overflow-hidden rounded-[2rem] border-2 border-dashed border-blue-200 dark:border-white/10 bg-blue-50/40 dark:bg-white/5 p-4 transition-all hover:border-blue-400">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Imagen del Producto</p>
+                      <label className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-lg shadow-blue-100 dark:shadow-none hover:bg-blue-500 active:scale-95 transition-all">
+                        <ImagePlus size={14} /> Seleccionar
+                        <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                      </label>
+                    </div>
+                    {form.photoUrl ? (
+                      <div className="relative h-32 w-full">
+                        <img src={form.photoUrl} alt="preview" className="w-full h-full object-contain rounded-xl" />
+                        <button onClick={() => setForm(p => ({ ...p, photoUrl: '' }))} className="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-lg shadow-lg"><X size={12} /></button>
+                      </div>
+                    ) : (
+                      <div className="h-32 flex flex-col items-center justify-center gap-2 text-blue-300">
+                        <Package size={32} className="opacity-20" />
+                        <span className="text-[9px] font-black uppercase tracking-widest opacity-50">Sin Archivo</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6">
-                <button onClick={closeEditor} className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600">Cancelar</button>
-                <button onClick={() => void handleSaveProduct()} disabled={isLoading} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-60">
-                  {editingProductId == null ? 'Crear producto' : 'Guardar cambios'}
+              <div className="flex gap-4 mt-10">
+                <button 
+                  onClick={closeEditor} 
+                  className="flex-1 rounded-2xl border border-blue-100 dark:border-white/10 px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 hover:bg-blue-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => void handleSaveProduct()} 
+                  disabled={isLoading} 
+                  className="flex-[2] rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-blue-200 dark:shadow-none disabled:opacity-60 transition-all active:scale-[0.98]"
+                >
+                  {editingProductId == null ? 'Finalizar Registro' : 'Actualizar Cambios'}
                 </button>
               </div>
             </motion.div>

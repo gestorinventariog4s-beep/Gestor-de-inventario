@@ -107,6 +107,14 @@ export interface AppUser {
   document?: string;
   fullName: string;
   role: UserRole;
+  active?: boolean;
+}
+
+export interface UpdateUserPayload {
+  document: string;
+  fullName: string;
+  password?: string;
+  role: UserRole;
 }
 
 export interface ProductFormState {

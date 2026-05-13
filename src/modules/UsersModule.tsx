@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   Users as UsersIcon, 
   UserPlus, 
@@ -6,14 +6,21 @@ import {
   UserCheck,
   Mail,
   Lock,
+  Pencil,
+  Trash2,
+  PauseCircle,
+  X,
 } from 'lucide-react';
-import { AppUser, UserRole } from '../types';
+import { AppUser, UpdateUserPayload, UserRole } from '../types';
 
 interface UsersModuleProps {
   users: AppUser[];
   newUserForm: { document: string; password: string; fullName: string; role: UserRole };
   setNewUserForm: (v: { document: string; password: string; fullName: string; role: UserRole }) => void;
   onSubmitNewUser: () => Promise<void>;
+  onUpdateUser: (id: number, payload: UpdateUserPayload) => Promise<void>;
+  onSuspendUser: (id: number) => Promise<void>;
+  onDeleteUser: (id: number) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -22,8 +29,37 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
   newUserForm,
   setNewUserForm,
   onSubmitNewUser,
+  onUpdateUser,
+  onSuspendUser,
+  onDeleteUser,
   isLoading
 }) => {
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [editForm, setEditForm] = useState<UpdateUserPayload>({ document: '', fullName: '', role: 'OPERADOR', password: '' });
+
+  const canEdit = useMemo(() => true, []);
+
+  const openEdit = (user: AppUser) => {
+    setEditingUser(user);
+    setEditForm({
+      document: user.document ?? user.username,
+      fullName: user.fullName,
+      role: user.role,
+      password: '',
+    });
+  };
+
+  const closeEdit = () => {
+    setEditingUser(null);
+    setEditForm({ document: '', fullName: '', role: 'OPERADOR', password: '' });
+  };
+
+  const saveEdit = async () => {
+    if (!editingUser) return;
+    await onUpdateUser(editingUser.id, editForm);
+    closeEdit();
+  };
+
   return (
     <div className="space-y-8 animate-fade pb-20">
       
@@ -150,9 +186,9 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${u.role === 'ADMIN' ? 'bg-blue-500' : 'bg-slate-400'}`} />
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${u.role === 'ADMIN' ? 'text-blue-500' : 'text-slate-500 dark:text-slate-400'}`}>
-                        {u.role}
+                      <div className={`w-2 h-2 rounded-full ${u.active === false ? 'bg-rose-500' : u.role === 'ADMIN' ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${u.active === false ? 'text-rose-500' : u.role === 'ADMIN' ? 'text-blue-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                        {u.active === false ? 'SUSPENDIDO' : u.role}
                       </span>
                     </div>
                   </td>
@@ -160,7 +196,17 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
                     <code className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-600/10 px-4 py-1.5 rounded-xl border border-blue-600/10">#{u.document ?? u.username}</code>
                   </td>
                   <td className="px-8 py-6 text-right">
-                    <button className="p-3 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"><MoreHorizontal size={20} /></button>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => openEdit(u)} className="p-3 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-xl transition-all" title="Editar">
+                        <Pencil size={18} />
+                      </button>
+                      <button onClick={() => onSuspendUser(u.id)} className="p-3 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-xl transition-all" title="Suspender">
+                        <PauseCircle size={18} />
+                      </button>
+                      <button onClick={() => onDeleteUser(u.id)} className="p-3 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all" title="Eliminar">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -168,6 +214,40 @@ export const UsersModule: React.FC<UsersModuleProps> = ({
           </table>
         </div>
       </div>
+
+      {editingUser && (
+        <div className="fixed inset-0 z-[120] bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Editar usuario</p>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">{editingUser.fullName}</h3>
+              </div>
+              <button onClick={closeEdit} className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-500">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="Documento ID" value={editForm.document} onChange={(e) => setEditForm((prev) => ({ ...prev, document: e.target.value }))} />
+              <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" placeholder="Nombre completo" value={editForm.fullName} onChange={(e) => setEditForm((prev) => ({ ...prev, fullName: e.target.value }))} />
+              <select className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" value={editForm.role} onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}>
+                <option value="OPERADOR">OPERADOR</option>
+                <option value="ADMIN">ADMIN</option>
+                <option value="EMPLEADO">EMPLEADO</option>
+              </select>
+              <input className="bg-slate-100 dark:bg-white/10 rounded-xl px-4 py-3 text-sm font-bold" type="password" placeholder="Nueva contraseña (opcional)" value={editForm.password ?? ''} onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))} />
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={closeEdit} className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-xs font-black uppercase tracking-widest text-slate-600">Cancelar</button>
+              <button onClick={() => void saveEdit()} disabled={isLoading || !canEdit} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-3 text-xs font-black uppercase tracking-widest text-white disabled:opacity-60">
+                Guardar cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

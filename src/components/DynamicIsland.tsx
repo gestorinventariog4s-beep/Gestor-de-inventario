@@ -14,7 +14,7 @@ interface DynamicIslandProps {
   modules: ModuleId[];
   moduleLabels: Record<ModuleId, string>;
   moduleIcons: Record<ModuleId, React.ReactNode>;
-  session: { username: string; role: UserRole };
+  session: { username: string; fullName?: string; role: UserRole };
   onLogout: () => void;
   onRefresh: () => void;
   isLoading: boolean;
@@ -72,7 +72,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               <RefreshCw size={20} />
             </button>
             <div className="island-divider"></div>
-            <div className="island-user" title={`${session.username} (${session.role})`}>
+            <div className="island-user" title={`${session.fullName || session.username} (${session.role})`}>
               <User size={20} />
             </div>
           </div>
@@ -104,7 +104,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
               
               <div className="island-footer">
                 <div className="user-details">
-                  <p className="user-name">{session.username}</p>
+                  <p className="user-name">{session.fullName || session.username}</p>
                   <p className="user-role">{session.role}</p>
                 </div>
                 <button className="btn-logout" onClick={onLogout}>
