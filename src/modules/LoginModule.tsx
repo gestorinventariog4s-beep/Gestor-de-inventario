@@ -7,6 +7,7 @@ import {
   User,
   ArrowRight
 } from 'lucide-react';
+import heroImage from '../assets/hero.png';
 
 interface LoginModuleProps {
   loginUser?: string;
@@ -88,7 +89,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({
           {/* Image Side (Visible on MD+) */}
           <div className="hidden md:block md:w-1/2 relative overflow-hidden group">
             <img 
-              src="/inventory_login_banner_1778690935381.png" 
+              src={heroImage}
               alt="Inventory System" 
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
             />
