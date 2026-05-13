@@ -30,8 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   ].filter((item) => (item.id === 'usuarios' ? session.role === 'ADMIN' : true));
 
   return (
-    <header className="sticky top-0 z-[100] px-4 md:px-8 py-8 flex justify-center w-full bg-transparent">
-      <div className={`w-full max-w-[1700px] flex justify-between items-center border rounded-[2.5rem] p-4 px-10 shadow-2xl transition-all duration-500 ${isDarkMode ? 'bg-white/5 border-white/10 backdrop-blur-2xl' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
+    <header className="sticky top-0 z-[100] px-4 md:px-8 py-4 flex justify-center w-full">
+      <div className={`w-full max-w-[1700px] flex justify-between items-center border rounded-[2rem] p-3 px-8 shadow-[0_15px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 backdrop-blur-xl ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white/80 border-blue-50/50'}`}>
         
         <div className="flex items-center gap-6">
           <motion.div 

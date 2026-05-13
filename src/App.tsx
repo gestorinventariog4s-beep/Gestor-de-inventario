@@ -441,7 +441,7 @@ function App() {
         toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
       />
 
-      <main className="max-w-[1700px] mx-auto px-4 md:px-8 pt-4">
+      <main className="max-w-[1700px] mx-auto px-4 md:px-8 pt-12">
         {activeModule === 'resumen' && (
           <DashboardModule 
             products={inventoryProducts} 

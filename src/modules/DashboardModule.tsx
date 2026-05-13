@@ -72,30 +72,31 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({
       {/* Top Banner & Main Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Banner de Operaciones - AJUSTE DE TAMAÑO Y CONTRASTE */}
-        <div className="lg:col-span-8 bg-blue-600 dark:bg-black/40 rounded-[2.5rem] p-8 text-white relative overflow-hidden flex flex-col justify-between min-h-[350px] shadow-xl border border-blue-500 dark:border-white/5">
-          <div className="absolute -top-10 -right-10 opacity-10 pointer-events-none text-white">
-            <Activity size={300} />
+        {/* Banner de Operaciones - PREMIUM GRADIENT */}
+        <div className="lg:col-span-8 bg-gradient-to-br from-slate-900 via-blue-900 to-blue-950 dark:from-black dark:to-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden flex flex-col justify-between min-h-[400px] shadow-[0_30px_60px_-15px_rgba(15,23,42,0.3)] border border-white/5">
+          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-blue-500/10 to-transparent pointer-events-none" />
+          <div className="absolute -top-12 -right-12 opacity-10 pointer-events-none text-blue-400 rotate-12">
+            <Activity size={300} strokeWidth={1} />
           </div>
           
-          <div className="relative z-10 space-y-4">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-4 py-1.5 rounded-xl">
-              <Clock size={14} className="text-white" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Sincronización en Tiempo Real</span>
+          <div className="relative z-10 space-y-6">
+            <div className="inline-flex items-center gap-3 bg-white/5 backdrop-blur-md border border-white/10 px-5 py-2 rounded-2xl">
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-200">Sincronización Inteligente</span>
             </div>
             
-            <h1 className="text-5xl font-black tracking-tighter leading-none">
-              Panel de <br /> <span className="text-blue-200 dark:text-blue-500">Estrategia</span>
+            <h1 className="text-6xl font-black tracking-tighter leading-tight">
+              Panel de <br /> <span className="text-blue-500">Estrategia</span>
             </h1>
             
-            <p className="text-blue-50 max-w-md text-sm font-medium leading-relaxed opacity-80">
-              Monitoreo táctico del flujo de dotación e inventarios para la optimización de recursos industriales.
+            <p className="text-slate-400 max-w-lg text-base font-medium leading-relaxed">
+              Monitoreo táctico del flujo de dotación e inventarios para la optimización de recursos industriales en tiempo real.
             </p>
           </div>
 
-          <div className="relative z-10 flex flex-wrap gap-3 mt-6">
+          <div className="relative z-10 flex flex-wrap gap-4 mt-8">
              <StatIsland title="Personal Activo" value={users.length} icon={UsersIcon} color="#3b82f6" delay={0.1} isDarkMode={isDarkMode} />
-             <StatIsland title="Alertas de Stock" value={alerts.length + returns.length} icon={AlertTriangle} color="#ef4444" delay={0.2} isDarkMode={isDarkMode} />
+             <StatIsland title="Alertas Críticas" value={alerts.length + returns.length} icon={AlertTriangle} color="#ef4444" delay={0.2} isDarkMode={isDarkMode} />
           </div>
         </div>
 

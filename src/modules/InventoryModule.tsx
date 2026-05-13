@@ -176,41 +176,42 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
       {/* Header Section - COMPACT & BLUE CONTRAST */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* Banner de Inventario */}
-        <div className="lg:col-span-8 bg-blue-600 dark:bg-black/40 rounded-[2.5rem] p-8 text-white relative overflow-hidden flex flex-col justify-between min-h-[350px] shadow-xl border border-blue-500 dark:border-white/5">
-          <div className="absolute -top-10 -right-10 opacity-10 pointer-events-none text-white">
-            <Package size={250} />
+        {/* Banner de Inventario - PREMIUM GRADIENT */}
+        <div className="lg:col-span-8 bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 dark:from-blue-900 dark:to-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden flex flex-col justify-between min-h-[400px] shadow-[0_30px_60px_-15px_rgba(37,99,235,0.3)] border border-white/10">
+          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/5 to-transparent pointer-events-none" />
+          <div className="absolute -top-12 -right-12 opacity-10 pointer-events-none text-white rotate-12">
+            <Package size={300} strokeWidth={1} />
           </div>
 
-          <div className="relative z-10 space-y-4">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-4 py-1.5 rounded-xl">
-              <TrendingUp size={14} className="text-white" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Auditoría de Activos</span>
+          <div className="relative z-10 space-y-6">
+            <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/20 px-5 py-2 rounded-2xl">
+              <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em]">Operaciones de Activos</span>
             </div>
 
-            <h1 className="text-5xl font-black tracking-tighter leading-none">
-              Control de <br /> <span className="text-blue-100 dark:text-blue-500">Inventario</span>
+            <h1 className="text-6xl font-black tracking-tighter leading-tight">
+              Control de <br /> <span className="text-blue-200">Inventario</span>
             </h1>
 
-            <p className="text-blue-50 max-w-md text-sm font-medium leading-relaxed opacity-80">
-              Gestión profesional de activos y dotación industrial con control de stock inteligente.
+            <p className="text-blue-100/70 max-w-lg text-base font-medium leading-relaxed">
+              Plataforma de alta precisión para el seguimiento de dotación industrial y activos corporativos con analítica de stock en tiempo real.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3 relative z-10 mt-6">
+          <div className="flex flex-wrap gap-4 relative z-10 mt-8">
             <button
               onClick={openCreateEditor}
               disabled={isLoading}
-              className="bg-white text-blue-700 hover:bg-blue-50 px-8 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shadow-md active:scale-95"
+              className="bg-white text-blue-700 hover:bg-blue-50 px-10 py-5 rounded-[1.8rem] font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transition-all shadow-xl shadow-blue-900/20 active:scale-95 group"
             >
-              <Plus size={16} strokeWidth={3} /> Nuevo Producto
+              <Plus size={18} strokeWidth={3} className="group-hover:rotate-90 transition-transform" /> Nuevo Producto
             </button>
             <button
               onClick={() => void onBulkAddProducts([])}
               disabled={isLoading}
-              className="bg-blue-800/40 hover:bg-blue-800/60 backdrop-blur-md text-white px-8 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all active:scale-95 border border-white/10"
+              className="bg-blue-800/30 hover:bg-blue-800/50 backdrop-blur-md text-white px-10 py-5 rounded-[1.8rem] font-black text-[11px] uppercase tracking-widest flex items-center gap-3 transition-all active:scale-95 border border-white/10"
             >
-              <FileSpreadsheet size={16} /> Carga Masiva
+              <FileSpreadsheet size={18} /> Carga Masiva
             </button>
           </div>
         </div>

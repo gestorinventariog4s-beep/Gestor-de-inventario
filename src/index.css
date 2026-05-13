@@ -19,11 +19,20 @@
 }
 
 body {
-  background-color: var(--bg-main);
+  background: radial-gradient(circle at top right, #f8fafc, #eff6ff);
   font-family: 'Outfit', sans-serif;
   color: #0f172a;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.dark body {
+  background: radial-gradient(circle at top right, #020617, #0f172a);
+}
+
+.app-shell {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* --- ANIMATIONS --- */
