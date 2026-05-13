@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1e3a8a;
+  --accent: #3b82f6;
+  --success: #059669;
+  --danger: #dc2626;
+  --bg-main: #ffffff;
+  --card-bg: #ffffff;
+  --radius-pro: 2.5rem;
+  --radius-xl: 1.5rem;
+  --blue-border: #dbeafe;
+  --shadow-premium: 0 10px 30px -10px rgba(37, 99, 235, 0.1);
+}
+
+body {
+  background-color: var(--bg-main);
+  font-family: 'Outfit', sans-serif;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* --- ANIMATIONS --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* --- CUSTOM UTILITIES --- */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--blue-border);
+}
+
+.dark .glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Adjust scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dbeafe;
+  border-radius: 10px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}

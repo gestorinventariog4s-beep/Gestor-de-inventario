@@ -1,0 +1,145 @@
+export type UserRole = 'ADMIN' | 'OPERADOR' | 'EMPLEADO';
+export type ModuleId = 'resumen' | 'inventario' | 'entregas' | 'qr' | 'reportes' | 'auditoria' | 'usuarios';
+
+export interface AuthResponse {
+  token: string;
+  username: string;
+  role: UserRole;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  description?: string;
+}
+
+export interface Product {
+  id: number;
+  sku: string;
+  name: string;
+  type: string;
+  talla?: string;
+  color?: string;
+  stock: number;
+  stockMinimo: number;
+  stockMaximo: number;
+  active: boolean;
+  category: Category;
+}
+
+export interface ProductPayload {
+  sku: string;
+  name: string;
+  type: string;
+  talla?: string;
+  color?: string;
+  stock: number;
+  stockMinimo: number;
+  stockMaximo: number;
+  categoryName: string;
+  categoryDescription?: string;
+}
+
+export interface InventoryMovement {
+  id: number;
+  quantity: number;
+  movementType: 'INBOUND' | 'OUTBOUND' | 'RETURN_ADJUSTMENT';
+  reason: string;
+  referenceId?: string;
+  createdBy: string;
+  createdAt: string;
+  product: Product;
+}
+
+export interface StockAlert {
+  id: number;
+  message: string;
+  resolved: boolean;
+  createdAt: string;
+  product: Product;
+}
+
+export interface ReturnTicket {
+  id: number;
+  employee: { id: number; username: string; fullName: string };
+  product: Product;
+  quantity: number;
+  reason: string;
+  status: 'OPEN' | 'APPROVED' | 'REJECTED' | 'CLOSED';
+  reintegratedToInventory: boolean;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface DeliveryResultResponse {
+  deliveryId: number;
+  actaId: number;
+  actaNumber: string;
+  employeeEmail?: string;
+}
+
+export interface QrTokenResponse {
+  token: string;
+  expiresAt: string;
+}
+
+export interface DashboardDemandResponse {
+  topProducts: Array<{ productName: string; quantity: number }>;
+  movementsCurrentMonth: number;
+}
+
+export interface AuditLog {
+  id: number;
+  actorUsername: string;
+  action: string;
+  entityName: string;
+  entityId?: string;
+  details?: string;
+  createdAt: string;
+}
+
+export interface AppUser {
+  id: number;
+  username: string;
+  fullName: string;
+  role: UserRole;
+}
+
+export interface ProductFormState {
+  sku: string;
+  name: string;
+  type: string;
+  talla: string;
+  color: string;
+  stock: string;
+  stockMinimo: string;
+  stockMaximo: string;
+  categoryName: string;
+  categoryDescription: string;
+}
+
+export interface MovementFormState {
+  productId: string;
+  quantity: string;
+  reason: string;
+  referenceId: string;
+}
+
+export interface DeliveryItemState {
+  productId: string;
+  quantity: string;
+}
+
+export interface MovementPayload {
+  productId: number;
+  quantity: number;
+  reason: string;
+  referenceId?: string;
+}
+
+export interface ReturnFormState {
+  employeeId: string;
+  productId: string;
+  quantity: string;
+  reason: string;
+}
