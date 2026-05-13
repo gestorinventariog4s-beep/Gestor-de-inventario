@@ -1,4 +1,4 @@
-import type { AuthResponse, DeliveryResultResponse, Product } from '../types';
+import type { AppUser, AuthResponse, DeliveryResultResponse, Product, UserRole } from '../types';
 
 const STORAGE_KEY = 'gestion-dotacion-auth';
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
@@ -196,6 +196,19 @@ export const getPendingDelivery = (document: string) =>
 
 export const createPendingDelivery = (payload: { employeeDocument: string; items: Array<{ productId: number; quantity: number }> }, session: AuthResponse | null, onLogout: () => void) => 
   authFetch<any>('/api/deliveries/pending', session, onLogout, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const listUsers = (session: AuthResponse | null, onLogout: () => void) =>
+  authFetch<AppUser[]>('/api/admin/users', session, onLogout);
+
+export const registerUser = (
+  payload: { username: string; fullName: string; password: string; role: UserRole },
+  session: AuthResponse | null,
+  onLogout: () => void,
+) =>
+  authFetch<{ id: number; username: string; role: UserRole }>('/api/auth/register', session, onLogout, {
     method: 'POST',
     body: JSON.stringify(payload),
   });

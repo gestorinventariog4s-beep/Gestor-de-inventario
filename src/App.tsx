@@ -8,12 +8,13 @@ import { QrReceptionPortal } from './modules/QrReceptionPortal';
 import { AuditModule } from './modules/AuditModule';
 import { UsersModule } from './modules/UsersModule';
 import { LoginModule } from './modules/LoginModule';
-import { confirmPublicQrDelivery, downloadPublicActa, fetchPublicProducts, login, readSession } from './services/api';
+import { confirmPublicQrDelivery, downloadPublicActa, fetchPublicProducts, listUsers, login, readSession, registerUser } from './services/api';
 import { 
   AuthResponse, 
   ModuleId, 
   Product, 
-  AppUser
+  AppUser,
+  UserRole,
 } from './types';
 
 // Mock Data
@@ -51,6 +52,13 @@ const MOCK_USERS: AppUser[] = [
   { id: 2, username: 'op01', fullName: 'Juan Pérez', role: 'OPERADOR' },
 ];
 
+const EMPTY_NEW_USER_FORM: { username: string; password: string; fullName: string; role: UserRole } = {
+  username: '',
+  password: '',
+  fullName: '',
+  role: 'OPERADOR',
+};
+
 function App() {
   const getPublicReceptionState = () => {
     const hash = window.location.hash || '';
@@ -74,6 +82,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(initialPublicReceptionState.isPublicReception);
   const [publicReceptionState, setPublicReceptionState] = useState(initialPublicReceptionState);
   const [publicProducts, setPublicProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [users, setUsers] = useState<AppUser[]>(MOCK_USERS);
+  const [newUserForm, setNewUserForm] = useState(EMPTY_NEW_USER_FORM);
 
   // Theme Sync
   useEffect(() => {
@@ -140,6 +150,51 @@ function App() {
     setSession(null);
   };
 
+  useEffect(() => {
+    if (!session || session.role !== 'ADMIN') {
+      return;
+    }
+
+    void listUsers(session, handleLogout)
+      .then((response) => setUsers(response))
+      .catch(() => {
+        setUsers(MOCK_USERS);
+      });
+  }, [session]);
+
+  const handleSubmitNewUser = async () => {
+    if (!session || session.role !== 'ADMIN') {
+      alert('Solo un usuario ADMIN puede crear nuevos usuarios.');
+      return;
+    }
+
+    const payload = {
+      username: newUserForm.username.trim(),
+      fullName: newUserForm.fullName.trim(),
+      password: newUserForm.password,
+      role: newUserForm.role,
+    };
+
+    if (!payload.username || !payload.fullName || !payload.password) {
+      alert('Completa nombre, usuario y contraseña.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await registerUser(payload, session, handleLogout);
+      const refreshedUsers = await listUsers(session, handleLogout);
+      setUsers(refreshedUsers);
+      setNewUserForm(EMPTY_NEW_USER_FORM);
+      alert('Usuario creado correctamente.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo crear el usuario.';
+      alert(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleConfirmQrReception = async (payload: {
     qrToken: string;
     employeeFullName: string;
@@ -198,7 +253,7 @@ function App() {
             products={MOCK_PRODUCTS} 
             alerts={[]} 
             returns={[]} 
-            users={MOCK_USERS} 
+            users={users} 
             demand={null} 
             realTimeData={[{ time: '10:00', value: 5 }, { time: '11:00', value: 12 }]}
           />
@@ -260,11 +315,11 @@ function App() {
         )}
         {activeModule === 'usuarios' && (
           <UsersModule 
-            users={MOCK_USERS} 
-            newUserForm={{username: '', password: '', fullName: '', role: 'OPERADOR'}} 
-            setNewUserForm={() => {}} 
-            onSubmitNewUser={async () => {}} 
-            isLoading={false} 
+            users={users} 
+            newUserForm={newUserForm} 
+            setNewUserForm={setNewUserForm} 
+            onSubmitNewUser={handleSubmitNewUser} 
+            isLoading={isLoading} 
           />
         )}
       </main>
