@@ -116,6 +116,8 @@ export const confirmPublicQrDelivery = (payload: {
   items: Array<{ productId: number; quantity: number }>;
   signatureDataUrl: string;
   evidencePhotos?: string[];
+  giverSignatureDataUrl?: string;
+  giverFullName?: string;
 }) => publicFetch<DeliveryResultResponse>('/api/public/deliveries/confirm', {
   method: 'POST',
   body: JSON.stringify(payload),
