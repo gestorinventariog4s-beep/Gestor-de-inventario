@@ -489,7 +489,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                                   <div className="flex-1 h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                                     <div className={`h-full rounded-full ${color.bar}`} style={{ width: `${fillPct}%` }} />
                                   </div>
-                                  <span className={`text-[9px] font-black ${color.text}`}>{ss.stock}U</span>
+                                  <span className={`text-[9px] font-black ${color.text}`}>{ss.stock}</span>
                                 </div>
                               );
                             })}
