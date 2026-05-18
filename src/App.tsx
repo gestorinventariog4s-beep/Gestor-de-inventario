@@ -50,6 +50,9 @@ const MOCK_PRODUCTS: Product[] = [
     stockMaximo: 100,
     active: true,
     category: { id: 1, name: 'Proteccion' },
+    sizeStocks: [
+      { id: 1, talla: 'L', stock: 45 },
+    ],
   },
   {
     id: 2,
@@ -63,6 +66,9 @@ const MOCK_PRODUCTS: Product[] = [
     stockMaximo: 200,
     active: true,
     category: { id: 2, name: 'Manos' },
+    sizeStocks: [
+      { id: 2, talla: 'M', stock: 5 },
+    ],
   },
 ];
 
