@@ -84,6 +84,8 @@ const EMPTY_NEW_USER_FORM: { document: string; password: string; fullName: strin
   role: 'OPERADOR',
 };
 
+const DEFAULT_PRODUCTS: Product[] = import.meta.env.DEV ? MOCK_PRODUCTS : [];
+
 function App() {
   const getPublicReceptionState = () => {
     const hash = window.location.hash || '';
@@ -106,8 +108,8 @@ function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>('resumen');
   const [isLoading, setIsLoading] = useState(initialPublicReceptionState.isPublicReception);
   const [publicReceptionState, setPublicReceptionState] = useState(initialPublicReceptionState);
-  const [publicProducts, setPublicProducts] = useState<Product[]>(MOCK_PRODUCTS);
-  const [inventoryProducts, setInventoryProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [publicProducts, setPublicProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const [inventoryProducts, setInventoryProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
   const [inventoryAlerts, setInventoryAlerts] = useState<StockAlert[]>([]);
   const [inventorySaving, setInventorySaving] = useState(false);
   const [users, setUsers] = useState<AppUser[]>(MOCK_USERS);
@@ -161,7 +163,7 @@ function App() {
       })
       .catch(() => {
         if (isMounted) {
-          setPublicProducts(MOCK_PRODUCTS);
+          setPublicProducts(import.meta.env.DEV ? MOCK_PRODUCTS : []);
         }
       })
       .finally(() => {
@@ -213,7 +215,7 @@ function App() {
         setInventoryProducts(products);
         setInventoryAlerts(alerts);
       } catch {
-        setInventoryProducts(MOCK_PRODUCTS);
+        setInventoryProducts(import.meta.env.DEV ? MOCK_PRODUCTS : []);
         setInventoryAlerts([]);
       }
     };
