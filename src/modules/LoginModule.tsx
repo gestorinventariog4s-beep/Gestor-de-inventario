@@ -177,7 +177,7 @@ export const LoginModule: React.FC<LoginModuleProps> = ({
               )}
 
               <motion.button
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4.5 rounded-[1.2rem] shadow-xl shadow-blue-600/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50 mt-4"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black min-h-[56px] py-5 rounded-[1.3rem] shadow-[0_14px_30px_-12px_rgba(37,99,235,0.55)] flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50 mt-4"
                 type="submit"
                 disabled={isBusy}
               >

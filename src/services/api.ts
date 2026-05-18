@@ -2,6 +2,10 @@ import type { AppUser, AuthResponse, DeliveryResultResponse, Product, ProductPay
 
 const STORAGE_KEY = 'gestion-dotacion-auth';
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+const SIZE_STOCK_CACHE_KEY = 'gestion-dotacion-size-stocks-cache';
+
+type CachedSizeStock = { talla: string; stock: number };
+type CachedSizeStockStore = Record<string, CachedSizeStock[]>;
 
 const buildInventoryPayload = (payload: ProductPayload) => {
   const totalStock = (payload.sizeStocks ?? []).reduce((sum, item) => sum + (item.stock ?? 0), 0);
@@ -15,6 +19,41 @@ const buildInventoryPayload = (payload: ProductPayload) => {
   };
 };
 
+const readSizeStockCache = (): CachedSizeStockStore => {
+  try {
+    const raw = localStorage.getItem(SIZE_STOCK_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as CachedSizeStockStore;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeSizeStockCache = (store: CachedSizeStockStore) => {
+  try {
+    localStorage.setItem(SIZE_STOCK_CACHE_KEY, JSON.stringify(store));
+  } catch {
+    // Ignore storage quota/security errors.
+  }
+};
+
+const cacheSizeStocks = (productId: number | undefined, sku: string | undefined, sizeStocks: CachedSizeStock[]) => {
+  if (!sizeStocks?.length) return;
+  const store = readSizeStockCache();
+  if (productId != null) store[`id:${productId}`] = sizeStocks;
+  if (sku) store[`sku:${sku}`] = sizeStocks;
+  writeSizeStockCache(store);
+};
+
+const getCachedSizeStocks = (product: Product): CachedSizeStock[] => {
+  const store = readSizeStockCache();
+  const byId = product.id != null ? store[`id:${product.id}`] : undefined;
+  if (byId?.length) return byId;
+  const bySku = product.sku ? store[`sku:${product.sku}`] : undefined;
+  return bySku?.length ? bySku : [];
+};
+
 const parseLegacySizeStocks = (product: Product) => {
   const rawTallas = (product.talla ?? '')
     .split(',')
@@ -23,24 +62,32 @@ const parseLegacySizeStocks = (product: Product) => {
 
   if (rawTallas.length === 0) return [];
 
-  const base = Math.floor((product.stock ?? 0) / rawTallas.length);
-  let remainder = (product.stock ?? 0) % rawTallas.length;
-
-  // Legacy APIs only return total stock + talla string; distribute for display fallback.
-  return rawTallas.map((talla, idx) => {
-    const extra = remainder > 0 ? 1 : 0;
-    remainder -= extra;
-    return {
-      id: -(product.id * 100 + idx + 1),
-      talla,
-      stock: base + extra,
-    };
-  });
+  // Legacy APIs may not provide stock by size. Preserve sizes but do not invent quantities.
+  return rawTallas.map((talla, idx) => ({
+    id: -(product.id * 100 + idx + 1),
+    talla,
+    stock: 0,
+  }));
 };
 
 const normalizeProduct = (product: Product): Product => {
   const current = Array.isArray(product.sizeStocks) ? product.sizeStocks : [];
-  if (current.length > 0) return product;
+  if (current.length > 0) {
+    cacheSizeStocks(product.id, product.sku, current.map((s) => ({ talla: s.talla, stock: s.stock })));
+    return product;
+  }
+
+  const cached = getCachedSizeStocks(product);
+  if (cached.length > 0) {
+    return {
+      ...product,
+      sizeStocks: cached.map((s, idx) => ({
+        id: -(product.id * 100 + idx + 1),
+        talla: s.talla,
+        stock: s.stock,
+      })),
+    };
+  }
 
   return {
     ...product,
@@ -164,26 +211,32 @@ export const fetchInventoryProducts = async (session: AuthResponse | null, onLog
 export const fetchInventoryAlerts = (session: AuthResponse | null, onLogout: () => void) =>
   authFetch<StockAlert[]>('/api/inventory/alerts', session, onLogout);
 
-export const createInventoryProduct = (
+export const createInventoryProduct = async (
   payload: ProductPayload,
   session: AuthResponse | null,
   onLogout: () => void,
-) =>
-  authFetch<Product>('/api/inventory/products', session, onLogout, {
+) => {
+  const product = await authFetch<Product>('/api/inventory/products', session, onLogout, {
     method: 'POST',
     body: JSON.stringify(buildInventoryPayload(payload)),
   });
+  cacheSizeStocks(product.id, product.sku ?? payload.sku, payload.sizeStocks);
+  return normalizeProduct(product);
+};
 
-export const updateInventoryProduct = (
+export const updateInventoryProduct = async (
   id: number,
   payload: ProductPayload,
   session: AuthResponse | null,
   onLogout: () => void,
-) =>
-  authFetch<Product>(`/api/inventory/products/${id}`, session, onLogout, {
+) => {
+  const product = await authFetch<Product>(`/api/inventory/products/${id}`, session, onLogout, {
     method: 'PUT',
     body: JSON.stringify(buildInventoryPayload(payload)),
   });
+  cacheSizeStocks(product.id ?? id, product.sku ?? payload.sku, payload.sizeStocks);
+  return normalizeProduct(product);
+};
 
 export const deleteInventoryProduct = (id: number, session: AuthResponse | null, onLogout: () => void) =>
   authFetch<void>(`/api/inventory/products/${id}`, session, onLogout, {
