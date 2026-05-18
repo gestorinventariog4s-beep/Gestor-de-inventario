@@ -76,6 +76,8 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductPayload>(EMPTY_FORM);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [articleTypeMenuOpen, setArticleTypeMenuOpen] = useState(false);
   const articleTypeMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -124,10 +126,12 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   const openCreateEditor = () => {
     setEditingProductId(null);
     setForm(EMPTY_FORM);
+    setSaveError(null);
     setEditorOpen(true);
   };
 
   const openEditEditor = (product: Product) => {
+    setSaveError(null);
     setEditingProductId(product.id);
     setForm({
       sku: product.sku,
@@ -191,6 +195,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   };
 
   const handleSaveProduct = async () => {
+    if (isSaving) return;
     if (!form.sku.trim() || !form.name.trim() || !form.type.trim() || !form.categoryName.trim()) {
       return;
     }
@@ -217,12 +222,20 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
       sizeStocks: normalizedSizeStocks,
     };
 
-    if (editingProductId == null) {
-      await onAddProduct(payload);
-    } else {
-      await onEditProduct(editingProductId, payload);
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      if (editingProductId == null) {
+        await onAddProduct(payload);
+      } else {
+        await onEditProduct(editingProductId, payload);
+      }
+      closeEditor();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Error al guardar el producto.');
+    } finally {
+      setIsSaving(false);
     }
-    closeEditor();
   };
 
   const handleDeleteWithMode = async (mode: 'soft' | 'hard') => {
@@ -865,19 +878,25 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
               </div>
               </div>
 
+              {saveError && (
+                <div className="mx-0 mt-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 px-4 py-2.5 text-[10px] font-bold text-red-600 dark:text-red-400">
+                  {saveError}
+                </div>
+              )}
               <div className="flex gap-3 mt-4 pt-3 border-t border-blue-100/80 dark:border-white/10 bg-white dark:bg-slate-900">
                 <button 
                   onClick={closeEditor} 
-                  className="flex-1 rounded-xl border border-blue-100 dark:border-white/10 px-6 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 hover:bg-blue-50 transition-all"
+                  disabled={isSaving}
+                  className="flex-1 rounded-xl border border-blue-100 dark:border-white/10 px-6 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 hover:bg-blue-50 transition-all disabled:opacity-40"
                 >
                   Cancelar
                 </button>
                 <button 
                   onClick={() => void handleSaveProduct()} 
-                  disabled={isLoading} 
+                  disabled={isLoading || isSaving} 
                   className="flex-[2] rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-6 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-blue-200 dark:shadow-none disabled:opacity-60 transition-all active:scale-[0.98]"
                 >
-                  {editingProductId == null ? 'Finalizar Registro' : 'Actualizar Cambios'}
+                  {isSaving ? 'Guardando...' : editingProductId == null ? 'Finalizar Registro' : 'Actualizar Cambios'}
                 </button>
               </div>
             </motion.div>
