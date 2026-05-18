@@ -96,6 +96,7 @@ const normalizeProduct = (product: Product): Product => {
 };
 
 const normalizeProducts = (products: Product[]) => products.map(normalizeProduct);
+const onlyActiveProducts = (products: Product[]) => products.filter((p) => p.active !== false);
 
 export const readSession = (): AuthResponse | null => {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -200,12 +201,12 @@ export const publicFetch = async <T>(path: string, options?: globalThis.RequestI
 
 export const fetchPublicProducts = async () => {
   const products = await publicFetch<Product[]>('/api/public/products');
-  return normalizeProducts(products);
+  return onlyActiveProducts(normalizeProducts(products));
 };
 
 export const fetchInventoryProducts = async (session: AuthResponse | null, onLogout: () => void) => {
   const products = await authFetch<Product[]>('/api/inventory/products', session, onLogout);
-  return normalizeProducts(products);
+  return onlyActiveProducts(normalizeProducts(products));
 };
 
 export const fetchInventoryAlerts = (session: AuthResponse | null, onLogout: () => void) =>
@@ -238,8 +239,13 @@ export const updateInventoryProduct = async (
   return normalizeProduct(product);
 };
 
-export const deleteInventoryProduct = (id: number, session: AuthResponse | null, onLogout: () => void) =>
-  authFetch<void>(`/api/inventory/products/${id}`, session, onLogout, {
+export const deleteInventoryProduct = (
+  id: number,
+  mode: 'soft' | 'hard',
+  session: AuthResponse | null,
+  onLogout: () => void,
+) =>
+  authFetch<void>(`/api/inventory/products/${id}?mode=${mode}`, session, onLogout, {
     method: 'DELETE',
   });
 

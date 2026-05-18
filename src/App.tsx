@@ -374,21 +374,23 @@ function App() {
     }
   };
 
-  const handleDeleteInventoryProduct = async (id: number) => {
+  const handleDeleteInventoryProduct = async (id: number, mode: 'soft' | 'hard') => {
     if (!session) {
       showToast('error', 'Sesion no disponible.');
       return;
     }
     setInventorySaving(true);
     try {
-      await deleteInventoryProduct(id, session, handleLogout);
+      await deleteInventoryProduct(id, mode, session, handleLogout);
       const [products, alerts] = await Promise.all([
         fetchInventoryProducts(session, handleLogout),
         fetchInventoryAlerts(session, handleLogout),
       ]);
       setInventoryProducts(products);
       setInventoryAlerts(alerts);
-      showToast('success', 'Producto desactivado correctamente.');
+      showToast('success', mode === 'hard'
+        ? 'Producto eliminado definitivamente.'
+        : 'Producto ocultado correctamente de inventario.');
     } catch (error) {
       showToast('error', getSafeErrorMessage(error, 'No se pudo eliminar el producto.'));
       throw error;

@@ -23,7 +23,7 @@ interface InventoryManagerProps {
   alerts: StockAlert[];
   onAddProduct: (p: ProductPayload) => Promise<void>;
   onEditProduct: (id: number, p: ProductPayload) => Promise<void>;
-  onDeleteProduct: (id: number) => Promise<void>;
+  onDeleteProduct: (id: number, mode: 'soft' | 'hard') => Promise<void>;
   onBulkAddProducts: (products: ProductPayload[]) => Promise<void>;
   isLoading: boolean;
 }
@@ -68,6 +68,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [form, setForm] = useState<ProductPayload>(EMPTY_FORM);
   const [articleTypeMenuOpen, setArticleTypeMenuOpen] = useState(false);
   const articleTypeMenuRef = useRef<HTMLDivElement | null>(null);
@@ -200,6 +201,12 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
       await onEditProduct(editingProductId, form);
     }
     closeEditor();
+  };
+
+  const handleDeleteWithMode = async (mode: 'soft' | 'hard') => {
+    if (!deleteTarget) return;
+    await onDeleteProduct(deleteTarget.id, mode);
+    setDeleteTarget(null);
   };
 
   const categories = useMemo(() =>
@@ -486,7 +493,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                   >
                     {isExpanded ? 'Ocultar' : 'Ver'}
                   </button>
-                  <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-blue-300 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16} /></button>
+                  <button onClick={() => setDeleteTarget(p)} className="p-2 text-blue-300 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16} /></button>
                 </div>
               </motion.article>
             );
@@ -563,7 +570,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                       <td className="px-6 py-5 text-right">
                         <div className="flex justify-end gap-2">
                           <button onClick={() => openEditEditor(p)} className="px-3 py-2 text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white rounded-xl hover:bg-blue-500">Editar</button>
-                          <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-blue-300 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16} /></button>
+                          <button onClick={() => setDeleteTarget(p)} className="p-2 text-blue-300 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16} /></button>
                         </div>
                       </td>
                     </motion.tr>
@@ -842,6 +849,51 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                   className="flex-[2] rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-blue-200 dark:shadow-none disabled:opacity-60 transition-all active:scale-[0.98]"
                 >
                   {editingProductId == null ? 'Finalizar Registro' : 'Actualizar Cambios'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1100] bg-blue-950/45 backdrop-blur-sm p-4 flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 12 }}
+              className="w-full max-w-lg rounded-[2rem] bg-white dark:bg-slate-900 border border-blue-100 dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.25)] p-6"
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 mb-2">Confirmar Acción</p>
+              <h4 className="text-xl font-black tracking-tight text-blue-950 dark:text-white mb-2">{deleteTarget.name}</h4>
+              <p className="text-sm font-bold text-slate-500 mb-6">
+                ¿Deseas ocultar este producto del inventario o eliminarlo definitivamente?
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="rounded-xl border border-blue-100 dark:border-white/10 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-blue-500 hover:bg-blue-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => void handleDeleteWithMode('soft')}
+                  className="rounded-xl bg-amber-500 hover:bg-amber-400 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all"
+                >
+                  Ocultar
+                </button>
+                <button
+                  onClick={() => void handleDeleteWithMode('hard')}
+                  className="rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white transition-all"
+                >
+                  Eliminar
                 </button>
               </div>
             </motion.div>
