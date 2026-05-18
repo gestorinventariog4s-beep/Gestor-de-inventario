@@ -3,6 +3,18 @@ import type { AppUser, AuthResponse, DeliveryResultResponse, Product, ProductPay
 const STORAGE_KEY = 'gestion-dotacion-auth';
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
+const buildInventoryPayload = (payload: ProductPayload) => {
+  const totalStock = (payload.sizeStocks ?? []).reduce((sum, item) => sum + (item.stock ?? 0), 0);
+  const talla = (payload.sizeStocks ?? []).map((item) => item.talla).join(', ');
+
+  // Keep backward compatibility with older backend DTOs that still require stock/talla.
+  return {
+    ...payload,
+    stock: totalStock,
+    talla,
+  };
+};
+
 export const readSession = (): AuthResponse | null => {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -119,7 +131,7 @@ export const createInventoryProduct = (
 ) =>
   authFetch<Product>('/api/inventory/products', session, onLogout, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(buildInventoryPayload(payload)),
   });
 
 export const updateInventoryProduct = (
@@ -130,7 +142,7 @@ export const updateInventoryProduct = (
 ) =>
   authFetch<Product>(`/api/inventory/products/${id}`, session, onLogout, {
     method: 'PUT',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(buildInventoryPayload(payload)),
   });
 
 export const deleteInventoryProduct = (id: number, session: AuthResponse | null, onLogout: () => void) =>
