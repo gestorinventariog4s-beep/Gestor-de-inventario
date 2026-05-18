@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
+  ChevronDown,
   Clock,
   Edit3,
   FileSpreadsheet,
@@ -15,7 +16,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { Product, ProductPayload, StockAlert } from '../types';
+import { Product, ProductPayload, SizeStockPayload, StockAlert } from '../types';
 
 interface InventoryManagerProps {
   products: Product[];
@@ -35,16 +36,17 @@ const ARTICLE_TYPES = [
   { id: 'Otros', label: '📦 Otros / Accesorios', sizes: ['UNICA', 'S', 'M', 'L', 'XL'] },
 ];
 
+const cleanArticleTypeLabel = (label: string) => label.split(' ').slice(1).join(' ') || label;
+
 const EMPTY_FORM: ProductPayload = {
   sku: '',
   name: '',
   type: ARTICLE_TYPES[0].id,
-  talla: '',
   color: '',
   photoUrl: '',
-  stock: 1,
   stockMinimo: 1,
-  stockMaximo: 2,
+  stockMaximo: 10,
+  sizeStocks: [],
   categoryName: 'Dotación',
   categoryDescription: '',
 };
@@ -64,24 +66,49 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [form, setForm] = useState<ProductPayload>(EMPTY_FORM);
+  const [articleTypeMenuOpen, setArticleTypeMenuOpen] = useState(false);
+  const articleTypeMenuRef = useRef<HTMLDivElement | null>(null);
 
-  const parseSizes = (value?: string) => {
-    if (!value) return [];
-    return value
-      .split(/[,/|-]/)
-      .map((size) => size.trim())
-      .filter((size) => size.length > 0);
-  };
+  useEffect(() => {
+    if (!articleTypeMenuOpen) return;
 
-  const getLevel = (product: Product) => {
-    if (product.stock <= 0) {
-      return { label: 'Critico', color: 'text-rose-600', bar: 'bg-rose-500', marks: 0 };
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (articleTypeMenuRef.current && !articleTypeMenuRef.current.contains(event.target as Node)) {
+        setArticleTypeMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setArticleTypeMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [articleTypeMenuOpen]);
+
+  // Compute total stock from sizeStocks
+  const totalStock = (sizeStocks: SizeStockPayload[]) =>
+    sizeStocks.reduce((sum, s) => sum + (s.stock || 0), 0);
+
+  // Get color info for a single size bar
+  const getSizeBarColor = (sizeStock: number, stockMinimo: number, stockMaximo: number, numSizes: number) => {
+    const perSizeMax = numSizes > 0 ? stockMaximo / numSizes : stockMaximo;
+    const perSizeMin = numSizes > 0 ? stockMinimo / numSizes : stockMinimo;
+    const pct = perSizeMax > 0 ? (sizeStock / perSizeMax) * 100 : 0;
+    if (sizeStock <= 0 || pct <= (perSizeMin / perSizeMax) * 100 + 5) {
+      return { bar: 'bg-rose-500', border: 'border-rose-300', text: 'text-rose-600', label: 'Crítico' };
     }
-    if (product.stock <= product.stockMinimo) {
-      return { label: 'Bajo', color: 'text-amber-600', bar: 'bg-amber-500', marks: 2 };
+    if (pct < 55) {
+      return { bar: 'bg-amber-400', border: 'border-amber-300', text: 'text-amber-600', label: 'Bajo' };
     }
-    const marks = product.stock >= product.stockMaximo ? 5 : Math.max(3, Math.ceil((product.stock / product.stockMaximo) * 5));
-    return { label: 'Optimo', color: 'text-emerald-600', bar: 'bg-emerald-500', marks };
+    return { bar: 'bg-emerald-500', border: 'border-emerald-300', text: 'text-emerald-600', label: 'Óptimo' };
   };
 
   const openCreateEditor = () => {
@@ -96,12 +123,11 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
       sku: product.sku,
       name: product.name,
       type: product.type,
-      talla: product.talla ?? '',
       color: product.color ?? '',
       photoUrl: product.photoUrl ?? '',
-      stock: product.stock,
       stockMinimo: product.stockMinimo,
       stockMaximo: product.stockMaximo,
+      sizeStocks: (product.sizeStocks ?? []).map(ss => ({ talla: ss.talla, stock: ss.stock })),
       categoryName: product.category?.name ?? 'General',
       categoryDescription: product.category?.description ?? '',
     });
@@ -112,6 +138,16 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
     setEditorOpen(false);
     setEditingProductId(null);
     setForm(EMPTY_FORM);
+    setArticleTypeMenuOpen(false);
+  };
+
+  const selectArticleType = (newType: string) => {
+    setForm((prev) => ({
+      ...prev,
+      type: newType,
+      sizeStocks: [],
+    }));
+    setArticleTypeMenuOpen(false);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,14 +163,19 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   };
 
   const toggleSize = (size: string) => {
-    const currentSizes = parseSizes(form.talla);
-    let newSizes: string[];
-    if (currentSizes.includes(size)) {
-      newSizes = currentSizes.filter((s) => s !== size);
+    const exists = form.sizeStocks.some(s => s.talla === size);
+    if (exists) {
+      setForm(prev => ({ ...prev, sizeStocks: prev.sizeStocks.filter(s => s.talla !== size) }));
     } else {
-      newSizes = [...currentSizes, size];
+      setForm(prev => ({ ...prev, sizeStocks: [...prev.sizeStocks, { talla: size, stock: 0 }] }));
     }
-    setForm((prev) => ({ ...prev, talla: newSizes.join(', ') }));
+  };
+
+  const updateSizeStock = (talla: string, stock: number) => {
+    setForm(prev => ({
+      ...prev,
+      sizeStocks: prev.sizeStocks.map(s => s.talla === talla ? { ...s, stock } : s),
+    }));
   };
 
   const handleSaveProduct = async () => {
@@ -143,6 +184,10 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
     }
 
     if (form.stockMinimo >= form.stockMaximo) {
+      return;
+    }
+
+    if (form.sizeStocks.length === 0) {
       return;
     }
 
@@ -248,15 +293,16 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
             placeholder="Buscar por SKU o nombre..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-white/5 p-1.5 rounded-xl border border-blue-100 dark:border-white/5">
-          <Filter size={14} className="text-blue-600 ml-2" />
+        <div className="relative flex items-center gap-2 bg-blue-50/70 dark:bg-white/5 px-2.5 py-1.5 rounded-xl border border-blue-100 dark:border-white/5 shadow-sm">
+          <Filter size={14} className="text-blue-600 ml-1" />
           <select
-            className="bg-transparent border-none text-[9px] font-black text-blue-900 dark:text-slate-300 uppercase tracking-widest focus:ring-0 cursor-pointer pr-8"
+            className="appearance-none bg-transparent border-none text-[9px] font-black text-blue-900 dark:text-slate-300 uppercase tracking-widest focus:ring-0 cursor-pointer pl-1 pr-8"
             value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
           >
             <option value="all">CATEGORÍAS</option>
             {categories.map(c => <option key={c} value={c}>{c?.toUpperCase()}</option>)}
           </select>
+          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
         </div>
         <div className="flex bg-blue-50/50 dark:bg-white/5 p-1 rounded-xl border border-blue-100 dark:border-white/5">
           <button onClick={() => setViewMode('table')} className={`p-2 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm' : 'text-blue-400'}`}><List size={16} /></button>
@@ -268,9 +314,9 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredProducts.map((p) => {
-            const level = getLevel(p);
-            const stockPercentage = Math.min((p.stock / p.stockMaximo) * 100, 100);
-            const sizes = parseSizes(p.talla);
+            const sizeStocks = p.sizeStocks ?? [];
+            const numSizes = sizeStocks.length;
+            const perSizeMax = numSizes > 0 ? p.stockMaximo / numSizes : p.stockMaximo;
 
             return (
               <motion.article
@@ -293,56 +339,90 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                     <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">{p.sku}</p>
                     </div>
                   </div>
-                  <span className="bg-blue-50 dark:bg-white/10 text-blue-600 dark:text-slate-400 text-[8px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest border border-blue-100 dark:border-white/5">
-                    {ARTICLE_TYPES.find(t => t.id === p.type)?.label || p.type || 'GENERAL'}
-                  </span>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className="bg-blue-50 dark:bg-white/10 text-blue-600 dark:text-slate-400 text-[8px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest border border-blue-100 dark:border-white/5">
+                      {cleanArticleTypeLabel(ARTICLE_TYPES.find(t => t.id === p.type)?.label || p.type || 'GENERAL')}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white">
+                      Global: {p.stock} U
+                    </span>
+                  </div>
                 </div>
 
+                {/* Per-size bar chart */}
                 <div className="space-y-2 mb-4">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tallas</p>
-                  <div className="flex flex-wrap gap-2">
-                    {sizes.length > 0 ? (
-                      sizes.map((size) => (
-                        <span
-                          key={`${p.id}-${size}`}
-                          className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-600/10 text-blue-700 dark:text-blue-300 border border-blue-600/20"
-                        >
-                          {size}
-                        </span>
-                      ))
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Stock por Talla</p>
+                    <span className="text-[9px] font-black text-blue-500">{sizeStocks.length} tallas</span>
+                  </div>
+                  {sizeStocks.length > 0 ? (
+                    <>
+                      <div className="flex items-end gap-2">
+                        {sizeStocks.map((ss) => {
+                          const color = getSizeBarColor(ss.stock, p.stockMinimo, p.stockMaximo, numSizes);
+                          const fillPct = perSizeMax > 0 ? Math.min((ss.stock / perSizeMax) * 100, 100) : 0;
+                          return (
+                            <div key={`${p.id}-bar-${ss.talla}`} className="flex-1 flex flex-col items-center gap-1">
+                              <span className={`text-[9px] font-black ${color.text}`}>{ss.stock}</span>
+                              <div className="w-full h-12 bg-slate-100 dark:bg-white/10 rounded-lg overflow-hidden flex flex-col justify-end">
+                                <motion.div
+                                  className={`w-full rounded-lg ${color.bar}`}
+                                  initial={{ height: 0 }}
+                                  animate={{ height: `${fillPct}%` }}
+                                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                                />
+                              </div>
+                              <span className="text-[8px] font-black text-slate-400 uppercase">{ss.talla}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {sizeStocks.map((ss) => (
+                          <span
+                            key={`${p.id}-chip-${ss.talla}`}
+                            className="px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100"
+                          >
+                            {ss.talla}: {ss.stock}U
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 py-2">
+                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-slate-300 rounded-full" style={{ width: `${Math.min((p.stock / p.stockMaximo) * 100, 100)}%` }} />
+                      </div>
+                      <span className="text-[9px] font-black text-slate-400">{p.stock} U</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Imagen y resumen rápido */}
+                <div className="mb-4 rounded-xl border border-blue-100 dark:border-white/10 bg-blue-50/40 dark:bg-white/5 p-2.5 flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-lg bg-white dark:bg-white/10 border border-blue-100 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                    {p.photoUrl ? (
+                      <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
-                        Unica
-                      </span>
+                      <Package size={14} className="text-blue-400" />
                     )}
                   </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Imagen del producto</p>
+                    <p className="text-[10px] font-black text-blue-700 dark:text-blue-300 truncate">{p.photoUrl ? 'Cargada' : 'Sin imagen'}</p>
+                  </div>
                 </div>
 
-                <div className="space-y-3 mb-5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Nivel</p>
-                    <p className={`text-[10px] font-black uppercase tracking-widest ${level.color}`}>{level.label}</p>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex gap-1.5">
-                      {Array.from({ length: 5 }).map((_, idx) => (
-                        <span
-                          key={`${p.id}-mark-${idx}`}
-                          className={`w-3 h-3 rounded-full border border-white/40 ${idx < level.marks ? level.bar : 'bg-slate-200 dark:bg-slate-700'}`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-[10px] font-black text-blue-400">{p.stock} U</p>
-                  </div>
-
-                  <div className="h-1.5 bg-blue-50 dark:bg-white/5 rounded-full overflow-hidden">
-                    <motion.div
-                      className={`h-full rounded-full ${level.bar}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${stockPercentage}%` }}
+                {/* Min / Max indicator */}
+                <div className="flex items-center justify-between mb-4 px-1">
+                  <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Mín {p.stockMinimo}</span>
+                  <div className="flex-1 mx-2 h-0.5 bg-slate-100 dark:bg-white/10 relative">
+                    <div
+                      className="absolute left-0 top-0 h-full bg-blue-300 dark:bg-blue-700 rounded-full"
+                      style={{ width: `${Math.min((p.stock / p.stockMaximo) * 100, 100)}%` }}
                     />
                   </div>
+                  <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Máx {p.stockMaximo}</span>
                 </div>
 
                 <div className="flex gap-2">
@@ -350,7 +430,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                     onClick={() => openEditEditor(p)}
                     className="flex-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest"
                   >
-                    Nivel +
+                    Editar
                   </button>
                   <button onClick={() => openEditEditor(p)} className="p-2 text-blue-300 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all"><Edit3 size={16} /></button>
                   <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-blue-300 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16} /></button>
@@ -373,41 +453,63 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
               </thead>
               <tbody className="divide-y divide-blue-50 dark:divide-white/5">
                 {filteredProducts.map((p) => {
-                  const level = getLevel(p);
-                  const stockPercentage = Math.min((p.stock / p.stockMaximo) * 100, 100);
-                  const sizes = parseSizes(p.talla);
+                  const sizeStocks = p.sizeStocks ?? [];
+                  const numSizes = sizeStocks.length;
+                  const perSizeMax = numSizes > 0 ? p.stockMaximo / numSizes : p.stockMaximo;
 
                   return (
                     <motion.tr key={p.id} className="hover:bg-blue-50/30 dark:hover:bg-white/5 transition-colors group">
                       <td className="px-6 py-5">
-                        <div className="min-w-0">
-                          <p className="font-black text-blue-950 dark:text-white text-sm leading-tight truncate">{p.name}</p>
-                          <span className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest">{p.sku} • {ARTICLE_TYPES.find(t => t.id === p.type)?.label || p.type}</span>
+                        <div className="min-w-0 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-white/10 border border-blue-100 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                            {p.photoUrl ? (
+                              <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <Package size={14} className="text-blue-400" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-black text-blue-950 dark:text-white text-sm leading-tight truncate">{p.name}</p>
+                            <span className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest">{p.sku} • {cleanArticleTypeLabel(ARTICLE_TYPES.find(t => t.id === p.type)?.label || p.type)}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-5">
-                        <div className="flex flex-wrap gap-1.5">
-                          {(sizes.length > 0 ? sizes : ['UNICA']).map((size) => (
-                            <span key={`${p.id}-tbl-${size}`} className="px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest bg-blue-600/10 text-blue-700 border border-blue-600/20">
-                              {size}
-                            </span>
-                          ))}
-                        </div>
+                        {/* Per-size mini bar chart */}
+                        {sizeStocks.length > 0 ? (
+                          <div className="flex items-end gap-1.5">
+                            {sizeStocks.map((ss) => {
+                              const color = getSizeBarColor(ss.stock, p.stockMinimo, p.stockMaximo, numSizes);
+                              const fillPct = perSizeMax > 0 ? Math.min((ss.stock / perSizeMax) * 100, 100) : 0;
+                              return (
+                                <div key={`tbl-${p.id}-${ss.talla}`} className="flex flex-col items-center gap-0.5">
+                                  <span className={`text-[8px] font-black ${color.text}`}>{ss.stock}</span>
+                                  <div className="w-6 h-8 bg-slate-100 dark:bg-white/10 rounded overflow-hidden flex flex-col justify-end">
+                                    <div className={`w-full rounded ${color.bar}`} style={{ height: `${fillPct}%` }} />
+                                  </div>
+                                  <span className="text-[7px] font-black text-slate-400 uppercase">{ss.talla}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest bg-slate-100 text-slate-500">UNICA · {p.stock} U</span>
+                        )}
                       </td>
                       <td className="px-6 py-5">
-                        <div className="w-40 space-y-2">
+                        <div className="w-40 space-y-1">
                           <div className="flex justify-between text-[9px] font-black">
-                            <span className={level.color}>● {level.label.toUpperCase()}</span>
-                            <span className="text-blue-300 dark:text-slate-500">{p.stock} U</span>
+                            <span className="text-blue-400">Total: {p.stock} U</span>
+                            <span className="text-slate-400">Mín {p.stockMinimo} / Máx {p.stockMaximo}</span>
                           </div>
                           <div className="h-1.5 bg-blue-50 dark:bg-white/5 rounded-full overflow-hidden">
-                            <motion.div className={`h-full rounded-full ${level.bar}`} initial={{ width: 0 }} animate={{ width: `${stockPercentage}%` }} />
+                            <motion.div className="h-full rounded-full bg-blue-500" initial={{ width: 0 }} animate={{ width: `${Math.min((p.stock / p.stockMaximo) * 100, 100)}%` }} />
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => openEditEditor(p)} className="px-3 py-2 text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white rounded-xl hover:bg-blue-500">Nivel +</button>
+                          <button onClick={() => openEditEditor(p)} className="px-3 py-2 text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white rounded-xl hover:bg-blue-500">Editar</button>
                           <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-blue-300 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16} /></button>
                         </div>
                       </td>
@@ -476,26 +578,66 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Categoría de Artículo</label>
-                    <div className="relative">
-                      <select 
-                        className="w-full appearance-none bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer"
-                        value={form.type}
-                        onChange={(e) => {
-                          const newType = e.target.value;
-                          setForm((prev) => ({ 
-                            ...prev, 
-                            type: newType,
-                            talla: '' // Reset sizes when type changes
-                          }));
-                        }}
+                    <div className="relative" ref={articleTypeMenuRef}>
+                      <button
+                        type="button"
+                        onClick={() => setArticleTypeMenuOpen((prev) => !prev)}
+                        className="w-full bg-white/90 dark:bg-slate-950/60 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white transition-all cursor-pointer hover:border-blue-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none flex items-center justify-between"
+                        aria-haspopup="listbox"
+                        aria-expanded={articleTypeMenuOpen}
                       >
-                        {ARTICLE_TYPES.map(type => (
-                          <option key={type.id} value={type.id}>{type.label}</option>
-                        ))}
-                      </select>
-                      <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-blue-500">
-                        <Package size={16} />
-                      </div>
+                        <span className="truncate text-left">
+                          {cleanArticleTypeLabel(ARTICLE_TYPES.find(type => type.id === form.type)?.label ?? '')}
+                        </span>
+                        <span className="flex items-center gap-2 text-blue-500 shrink-0 pl-3">
+                          <Package size={16} />
+                          <ChevronDown size={14} className={`transition-transform ${articleTypeMenuOpen ? 'rotate-180' : ''}`} />
+                        </span>
+                      </button>
+
+                      <AnimatePresence>
+                        {articleTypeMenuOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                            transition={{ duration: 0.16 }}
+                            className="absolute z-30 mt-2 w-full rounded-2xl border border-blue-200 dark:border-white/10 bg-white dark:bg-slate-950 shadow-[0_20px_45px_-20px_rgba(37,99,235,0.45)] overflow-hidden"
+                            role="listbox"
+                          >
+                            <div className="max-h-64 overflow-y-auto py-1.5">
+                              {ARTICLE_TYPES.map((type) => {
+                                const isSelected = type.id === form.type;
+                                return (
+                                  <button
+                                    key={type.id}
+                                    type="button"
+                                    onClick={() => selectArticleType(type.id)}
+                                    className={`w-full text-left px-4 py-2.5 text-sm font-black transition-colors flex items-center gap-2.5 ${
+                                      isSelected
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-blue-900 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-white/5'
+                                    }`}
+                                    role="option"
+                                    aria-selected={isSelected}
+                                  >
+                                    <span
+                                      className={`w-6 h-6 rounded-lg border flex items-center justify-center shrink-0 ${
+                                        isSelected
+                                          ? 'border-white/40 bg-white/20'
+                                          : 'border-blue-100 dark:border-white/10 bg-blue-50 dark:bg-white/5 text-blue-500 dark:text-blue-300'
+                                      }`}
+                                    >
+                                      <Package size={13} />
+                                    </span>
+                                    <span className="truncate">{cleanArticleTypeLabel(type.label)}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
 
@@ -521,52 +663,93 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                   </div>
                 </div>
 
-                {/* Right Column: Dynamic Sizes & Stock */}
+                {/* Right Column: Sizes with per-size stock & Global Min/Max */}
                 <div className="space-y-5">
+                  {/* Size selection */}
                   <div className="space-y-3 bg-blue-50/30 dark:bg-white/5 p-6 rounded-[2rem] border border-blue-100 dark:border-white/10">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 flex items-center gap-2">
                       <List size={14} /> Tallas Disponibles
                     </label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2.5">
                       {ARTICLE_TYPES.find(t => t.id === form.type)?.sizes.map(size => {
-                        const isSelected = parseSizes(form.talla).includes(size);
+                        const isSelected = form.sizeStocks.some(s => s.talla === size);
                         return (
                           <button
                             key={size}
                             onClick={() => toggleSize(size)}
-                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                              isSelected 
-                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none scale-105' 
-                                : 'bg-white dark:bg-white/10 text-blue-400 border border-blue-100 dark:border-transparent hover:border-blue-400'
+                            type="button"
+                            className={`relative overflow-hidden px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none scale-105 ring-2 ring-blue-200/80 dark:ring-blue-400/20'
+                                : 'bg-white dark:bg-white/10 text-blue-500 border border-blue-100 dark:border-transparent hover:border-blue-300 hover:bg-blue-50/80 dark:hover:bg-blue-500/10'
                             }`}
                           >
+                            <span className={`absolute inset-x-0 bottom-0 h-[2px] transition-all ${isSelected ? 'bg-white/60' : 'bg-transparent'}`} />
                             {size}
                           </button>
                         );
                       })}
                     </div>
-                    <div className="pt-2">
-                      <input 
-                        className="w-full bg-transparent border-none p-0 text-[10px] font-bold text-slate-400 outline-none"
-                        placeholder="O escribe tallas separadas por coma..."
-                        value={form.talla}
-                        onChange={(e) => setForm(prev => ({ ...prev, talla: e.target.value }))}
-                      />
-                    </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  {/* Per-size stock inputs */}
+                  {form.sizeStocks.length > 0 && (
+                    <div className="space-y-3 bg-slate-50 dark:bg-white/5 p-5 rounded-[2rem] border border-slate-100 dark:border-white/10">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Cantidad por Talla</label>
+                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">
+                          Total: {totalStock(form.sizeStocks)} U
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
+                        {form.sizeStocks.map((ss) => {
+                          const color = getSizeBarColor(ss.stock, form.stockMinimo, form.stockMaximo, form.sizeStocks.length);
+                          return (
+                            <div key={`input-${ss.talla}`} className={`flex items-center gap-3 bg-white dark:bg-white/5 rounded-2xl px-4 py-3 border ${color.border}`}>
+                              <span className="text-[11px] font-black text-blue-700 dark:text-blue-300 w-10 shrink-0 uppercase">{ss.talla}</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={ss.stock}
+                                onChange={(e) => updateSizeStock(ss.talla, Math.max(0, Number(e.target.value)))}
+                                className={`w-full bg-transparent border-none outline-none text-sm font-black text-center ${color.text}`}
+                              />
+                              <div className="w-1.5 h-6 rounded-full shrink-0 overflow-hidden bg-slate-100">
+                                <div
+                                  className={`w-full rounded-full ${color.bar} transition-all`}
+                                  style={{
+                                    height: `${Math.min(((ss.stock / (form.stockMaximo / form.sizeStocks.length)) * 100), 100)}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Global min/max */}
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Actual</label>
-                      <input type="number" className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-4 py-4 text-sm font-black text-blue-600 text-center" value={form.stock} onChange={(e) => setForm(prev => ({ ...prev, stock: Number(e.target.value) }))} />
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Mínimo Global</label>
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-full bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20 rounded-2xl px-4 py-4 text-sm font-black text-rose-600 text-center"
+                        value={form.stockMinimo}
+                        onChange={(e) => setForm(prev => ({ ...prev, stockMinimo: Number(e.target.value) }))}
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Mínimo</label>
-                      <input type="number" className="w-full bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20 rounded-2xl px-4 py-4 text-sm font-black text-rose-600 text-center" value={form.stockMinimo} onChange={(e) => setForm(prev => ({ ...prev, stockMinimo: Number(e.target.value) }))} />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Máximo</label>
-                      <input type="number" className="w-full bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl px-4 py-4 text-sm font-black text-emerald-600 text-center" value={form.stockMaximo} onChange={(e) => setForm(prev => ({ ...prev, stockMaximo: Number(e.target.value) }))} />
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Máximo Global</label>
+                      <input
+                        type="number"
+                        min={2}
+                        className="w-full bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl px-4 py-4 text-sm font-black text-emerald-600 text-center"
+                        value={form.stockMaximo}
+                        onChange={(e) => setForm(prev => ({ ...prev, stockMaximo: Number(e.target.value) }))}
+                      />
                     </div>
                   </div>
 

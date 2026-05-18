@@ -14,6 +14,12 @@ export interface Category {
   description?: string;
 }
 
+export interface SizeStock {
+  id: number;
+  talla: string;
+  stock: number;
+}
+
 export interface Product {
   id: number;
   sku: string;
@@ -27,18 +33,23 @@ export interface Product {
   stockMaximo: number;
   active: boolean;
   category: Category;
+  sizeStocks: SizeStock[];
+}
+
+export interface SizeStockPayload {
+  talla: string;
+  stock: number;
 }
 
 export interface ProductPayload {
   sku: string;
   name: string;
   type: string;
-  talla?: string;
   color?: string;
   photoUrl?: string;
-  stock: number;
   stockMinimo: number;
   stockMaximo: number;
+  sizeStocks: SizeStockPayload[];
   categoryName: string;
   categoryDescription?: string;
 }
