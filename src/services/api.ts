@@ -15,6 +15,41 @@ const buildInventoryPayload = (payload: ProductPayload) => {
   };
 };
 
+const parseLegacySizeStocks = (product: Product) => {
+  const rawTallas = (product.talla ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (rawTallas.length === 0) return [];
+
+  const base = Math.floor((product.stock ?? 0) / rawTallas.length);
+  let remainder = (product.stock ?? 0) % rawTallas.length;
+
+  // Legacy APIs only return total stock + talla string; distribute for display fallback.
+  return rawTallas.map((talla, idx) => {
+    const extra = remainder > 0 ? 1 : 0;
+    remainder -= extra;
+    return {
+      id: -(product.id * 100 + idx + 1),
+      talla,
+      stock: base + extra,
+    };
+  });
+};
+
+const normalizeProduct = (product: Product): Product => {
+  const current = Array.isArray(product.sizeStocks) ? product.sizeStocks : [];
+  if (current.length > 0) return product;
+
+  return {
+    ...product,
+    sizeStocks: parseLegacySizeStocks(product),
+  };
+};
+
+const normalizeProducts = (products: Product[]) => products.map(normalizeProduct);
+
 export const readSession = (): AuthResponse | null => {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -116,10 +151,15 @@ export const publicFetch = async <T>(path: string, options?: globalThis.RequestI
   return response.json() as Promise<T>;
 };
 
-export const fetchPublicProducts = () => publicFetch<Product[]>('/api/public/products');
+export const fetchPublicProducts = async () => {
+  const products = await publicFetch<Product[]>('/api/public/products');
+  return normalizeProducts(products);
+};
 
-export const fetchInventoryProducts = (session: AuthResponse | null, onLogout: () => void) =>
-  authFetch<Product[]>('/api/inventory/products', session, onLogout);
+export const fetchInventoryProducts = async (session: AuthResponse | null, onLogout: () => void) => {
+  const products = await authFetch<Product[]>('/api/inventory/products', session, onLogout);
+  return normalizeProducts(products);
+};
 
 export const fetchInventoryAlerts = (session: AuthResponse | null, onLogout: () => void) =>
   authFetch<StockAlert[]>('/api/inventory/alerts', session, onLogout);
