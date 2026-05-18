@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
+  ArrowUpDown,
   ChevronDown,
   Clock,
-  Edit3,
   FileSpreadsheet,
   Filter,
   ImagePlus,
@@ -62,9 +62,12 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'oldest' | 'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc'>('recent');
+  const [quickView, setQuickView] = useState<'all' | 'critical'>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
   const [form, setForm] = useState<ProductPayload>(EMPTY_FORM);
   const [articleTypeMenuOpen, setArticleTypeMenuOpen] = useState(false);
   const articleTypeMenuRef = useRef<HTMLDivElement | null>(null);
@@ -204,15 +207,36 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
     , [products]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
+    const filtered = products.filter(p => {
       const name = p.name || '';
       const sku = p.sku || '';
       const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         sku.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCat = filterCategory === 'all' || (p.category?.name === filterCategory);
-      return matchesSearch && matchesCat;
+      const matchesQuickView = quickView === 'all' || p.stock <= p.stockMinimo;
+      return matchesSearch && matchesCat && matchesQuickView;
     });
-  }, [products, searchTerm, filterCategory]);
+
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'name_asc':
+          return (a.name ?? '').localeCompare(b.name ?? '', 'es', { sensitivity: 'base' });
+        case 'name_desc':
+          return (b.name ?? '').localeCompare(a.name ?? '', 'es', { sensitivity: 'base' });
+        case 'stock_asc':
+          return (a.stock ?? 0) - (b.stock ?? 0);
+        case 'stock_desc':
+          return (b.stock ?? 0) - (a.stock ?? 0);
+        case 'oldest':
+          return (a.id ?? 0) - (b.id ?? 0);
+        case 'recent':
+        default:
+          return (b.id ?? 0) - (a.id ?? 0);
+      }
+    });
+
+    return sorted;
+  }, [products, searchTerm, filterCategory, sortBy, quickView]);
 
   return (
     <div className="space-y-6 pb-10 animate-fade">
@@ -261,26 +285,46 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
         </div>
 
         {/* Métricas de Stock (Isla Derecha) */}
-        <div className="lg:col-span-4 grid grid-rows-2 gap-6">
-          <div className="bg-white dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-[2.5rem] p-8 flex flex-col justify-center shadow-sm relative overflow-hidden group">
-            <div className="absolute -right-6 -top-6 text-blue-600 opacity-5 group-hover:scale-110 transition-transform"><Package size={140} /></div>
-            <p className="text-[9px] font-black text-blue-500 dark:text-slate-400 uppercase tracking-[0.2em] mb-2">Existencias Totales</p>
-            <h3 className="text-5xl font-black text-blue-900 dark:text-white leading-none tracking-tighter">
+        <div className="lg:col-span-4 grid grid-rows-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setQuickView('all')}
+            className={`text-left rounded-[2rem] p-6 border transition-all ${
+              quickView === 'all'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-[0_20px_40px_-20px_rgba(37,99,235,0.6)]'
+                : 'bg-white dark:bg-white/5 border-blue-100 dark:border-white/10 text-blue-900 dark:text-white'
+            }`}
+          >
+            <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${quickView === 'all' ? 'text-blue-100' : 'text-blue-500 dark:text-slate-400'}`}>
+              Existencias Totales
+            </p>
+            <h3 className="text-4xl font-black leading-none tracking-tighter mt-2">
               {products.reduce((acc, p) => acc + (p.stock || 0), 0).toLocaleString()}
             </h3>
-            <div className="flex items-center gap-2 mt-4 text-emerald-600 font-black text-[9px] uppercase tracking-widest bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-lg w-fit border border-emerald-100 dark:border-emerald-500/20">
-              <Clock size={12} /> SINCRO OK
+            <div className={`inline-flex items-center gap-2 mt-4 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg ${quickView === 'all' ? 'bg-white/15 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+              <Clock size={12} /> Vista General
             </div>
-          </div>
+          </button>
 
-          <div className="bg-rose-50 border border-rose-100 dark:bg-rose-500/10 dark:border-rose-500/20 rounded-[2.5rem] p-8 flex flex-col justify-center shadow-sm relative overflow-hidden">
-            <div className="absolute -right-6 -bottom-6 text-rose-500 opacity-10"><AlertTriangle size={140} /></div>
-            <p className="text-[9px] font-black text-rose-600 uppercase tracking-[0.2em] mb-2">Alertas Críticas</p>
-            <h3 className="text-5xl font-black text-rose-700 dark:text-rose-600 leading-none tracking-tighter">
+          <button
+            type="button"
+            onClick={() => setQuickView('critical')}
+            className={`text-left rounded-[2rem] p-6 border transition-all ${
+              quickView === 'critical'
+                ? 'bg-rose-600 text-white border-rose-600 shadow-[0_20px_40px_-20px_rgba(225,29,72,0.6)]'
+                : 'bg-rose-50 border-rose-100 dark:bg-rose-500/10 dark:border-rose-500/20 text-rose-700 dark:text-rose-300'
+            }`}
+          >
+            <p className={`text-[9px] font-black uppercase tracking-[0.2em] ${quickView === 'critical' ? 'text-rose-100' : 'text-rose-600'}`}>
+              Alertas Críticas
+            </p>
+            <h3 className="text-4xl font-black leading-none tracking-tighter mt-2">
               {alerts.length || products.filter(p => p.stock <= p.stockMinimo).length}
             </h3>
-            <p className="text-[9px] font-bold mt-2 text-rose-600/60 uppercase tracking-widest">Nivel Critico</p>
-          </div>
+            <div className={`inline-flex items-center gap-2 mt-4 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg ${quickView === 'critical' ? 'bg-white/15 text-white' : 'bg-rose-100/70 text-rose-600 border border-rose-200/70'}`}>
+              <AlertTriangle size={12} /> Solo críticos
+            </div>
+          </button>
         </div>
       </div>
 
@@ -304,6 +348,22 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
           </select>
           <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
         </div>
+        <div className="relative flex items-center gap-2 bg-blue-50/70 dark:bg-white/5 px-2.5 py-1.5 rounded-xl border border-blue-100 dark:border-white/5 shadow-sm">
+          <ArrowUpDown size={14} className="text-blue-600 ml-1" />
+          <select
+            className="appearance-none bg-transparent border-none text-[9px] font-black text-blue-900 dark:text-slate-300 uppercase tracking-widest focus:ring-0 cursor-pointer pl-1 pr-8"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          >
+            <option value="recent">ENTRADAS RECIENTES</option>
+            <option value="oldest">ENTRADAS ANTIGUAS</option>
+            <option value="name_asc">NOMBRE A-Z</option>
+            <option value="name_desc">NOMBRE Z-A</option>
+            <option value="stock_desc">STOCK MAYOR-MENOR</option>
+            <option value="stock_asc">STOCK MENOR-MAYOR</option>
+          </select>
+          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
+        </div>
         <div className="flex bg-blue-50/50 dark:bg-white/5 p-1 rounded-xl border border-blue-100 dark:border-white/5">
           <button onClick={() => setViewMode('table')} className={`p-2 rounded-lg transition-all ${viewMode === 'table' ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm' : 'text-blue-400'}`}><List size={16} /></button>
           <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-sm' : 'text-blue-400'}`}><LayoutGrid size={16} /></button>
@@ -317,6 +377,8 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
             const sizeStocks = p.sizeStocks ?? [];
             const numSizes = sizeStocks.length;
             const perSizeMax = numSizes > 0 ? p.stockMaximo / numSizes : p.stockMaximo;
+            const isExpanded = expandedProductId === p.id;
+            const stockPct = Math.min((p.stock / p.stockMaximo) * 100, 100);
 
             return (
               <motion.article
@@ -349,81 +411,67 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                   </div>
                 </div>
 
-                {/* Per-size bar chart */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Stock por Talla</p>
-                    <span className="text-[9px] font-black text-blue-500">{sizeStocks.length} tallas</span>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="rounded-xl border border-blue-100 dark:border-white/10 bg-blue-50/50 dark:bg-white/5 px-3 py-2">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Tallas</p>
+                    <p className="text-sm font-black text-blue-700 dark:text-blue-300">{sizeStocks.length}</p>
                   </div>
-                  {sizeStocks.length > 0 ? (
-                    <>
-                      <div className="flex items-end gap-2">
-                        {sizeStocks.map((ss) => {
-                          const color = getSizeBarColor(ss.stock, p.stockMinimo, p.stockMaximo, numSizes);
-                          const fillPct = perSizeMax > 0 ? Math.min((ss.stock / perSizeMax) * 100, 100) : 0;
-                          return (
-                            <div key={`${p.id}-bar-${ss.talla}`} className="flex-1 flex flex-col items-center gap-1">
-                              <span className={`text-[9px] font-black ${color.text}`}>{ss.stock}</span>
-                              <div className="w-full h-12 bg-slate-100 dark:bg-white/10 rounded-lg overflow-hidden flex flex-col justify-end">
-                                <motion.div
-                                  className={`w-full rounded-lg ${color.bar}`}
-                                  initial={{ height: 0 }}
-                                  animate={{ height: `${fillPct}%` }}
-                                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                                />
-                              </div>
-                              <span className="text-[8px] font-black text-slate-400 uppercase">{ss.talla}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {sizeStocks.map((ss) => (
-                          <span
-                            key={`${p.id}-chip-${ss.talla}`}
-                            className="px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100"
-                          >
-                            {ss.talla}: {ss.stock}U
-                          </span>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2 py-2">
-                      <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-slate-300 rounded-full" style={{ width: `${Math.min((p.stock / p.stockMaximo) * 100, 100)}%` }} />
-                      </div>
-                      <span className="text-[9px] font-black text-slate-400">{p.stock} U</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Imagen y resumen rápido */}
-                <div className="mb-4 rounded-xl border border-blue-100 dark:border-white/10 bg-blue-50/40 dark:bg-white/5 p-2.5 flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-lg bg-white dark:bg-white/10 border border-blue-100 dark:border-white/10 overflow-hidden flex items-center justify-center shrink-0">
-                    {p.photoUrl ? (
-                      <img src={p.photoUrl} alt={p.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Package size={14} className="text-blue-400" />
-                    )}
+                  <div className="rounded-xl border border-blue-100 dark:border-white/10 bg-blue-50/50 dark:bg-white/5 px-3 py-2">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Mín / Máx</p>
+                    <p className="text-sm font-black text-blue-700 dark:text-blue-300">{p.stockMinimo} / {p.stockMaximo}</p>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Imagen del producto</p>
-                    <p className="text-[10px] font-black text-blue-700 dark:text-blue-300 truncate">{p.photoUrl ? 'Cargada' : 'Sin imagen'}</p>
+                  <div className="rounded-xl border border-blue-100 dark:border-white/10 bg-blue-50/50 dark:bg-white/5 px-3 py-2">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Estado</p>
+                    <p className={`text-sm font-black ${p.stock <= p.stockMinimo ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      {p.stock <= p.stockMinimo ? 'Crítico' : 'Estable'}
+                    </p>
                   </div>
                 </div>
 
-                {/* Min / Max indicator */}
-                <div className="flex items-center justify-between mb-4 px-1">
+                <div className="flex items-center justify-between gap-2 mb-4">
                   <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Mín {p.stockMinimo}</span>
-                  <div className="flex-1 mx-2 h-0.5 bg-slate-100 dark:bg-white/10 relative">
-                    <div
-                      className="absolute left-0 top-0 h-full bg-blue-300 dark:bg-blue-700 rounded-full"
-                      style={{ width: `${Math.min((p.stock / p.stockMaximo) * 100, 100)}%` }}
-                    />
+                  <div className="flex-1 h-1.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                    <motion.div className="h-full rounded-full bg-blue-500" initial={{ width: 0 }} animate={{ width: `${stockPct}%` }} />
                   </div>
                   <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Máx {p.stockMaximo}</span>
                 </div>
+
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-3 mb-4 rounded-xl border border-blue-100 dark:border-white/10 bg-blue-50/40 dark:bg-white/5 p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Detalle por talla</p>
+                          <p className="text-[9px] font-black text-blue-500">{sizeStocks.length} tallas</p>
+                        </div>
+                        {sizeStocks.length > 0 ? (
+                          <div className="space-y-2">
+                            {sizeStocks.map((ss) => {
+                              const color = getSizeBarColor(ss.stock, p.stockMinimo, p.stockMaximo, numSizes);
+                              const fillPct = perSizeMax > 0 ? Math.min((ss.stock / perSizeMax) * 100, 100) : 0;
+                              return (
+                                <div key={`${p.id}-row-${ss.talla}`} className="flex items-center gap-2">
+                                  <span className="w-8 text-[9px] font-black text-slate-500 uppercase">{ss.talla}</span>
+                                  <div className="flex-1 h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${color.bar}`} style={{ width: `${fillPct}%` }} />
+                                  </div>
+                                  <span className={`text-[9px] font-black ${color.text}`}>{ss.stock}U</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin detalle por talla</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <div className="flex gap-2">
                   <button
@@ -432,7 +480,12 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                   >
                     Editar
                   </button>
-                  <button onClick={() => openEditEditor(p)} className="p-2 text-blue-300 hover:text-blue-600 hover:bg-blue-100 rounded-xl transition-all"><Edit3 size={16} /></button>
+                  <button
+                    onClick={() => setExpandedProductId(isExpanded ? null : p.id)}
+                    className="px-3 py-2 text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-100 transition-all"
+                  >
+                    {isExpanded ? 'Ocultar' : 'Ver'}
+                  </button>
                   <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-blue-300 hover:text-rose-600 hover:bg-rose-100 rounded-xl transition-all"><Trash2 size={16} /></button>
                 </div>
               </motion.article>
