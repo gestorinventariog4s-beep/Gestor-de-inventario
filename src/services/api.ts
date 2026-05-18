@@ -7,6 +7,22 @@ const SIZE_STOCK_CACHE_KEY = 'gestion-dotacion-size-stocks-cache';
 type CachedSizeStock = { talla: string; stock: number };
 type CachedSizeStockStore = Record<string, CachedSizeStock[]>;
 
+const normalizeSizeLabel = (size: string) => {
+  const normalized = (size || '').trim().toUpperCase();
+  if (normalized === 'METRO') return 'M';
+  if (normalized === 'SG') return 'XL';
+  return normalized;
+};
+
+const normalizeSizeStocks = (sizeStocks: Array<{ talla: string; stock: number }>) => {
+  const grouped = new Map<string, number>();
+  sizeStocks.forEach((item) => {
+    const talla = normalizeSizeLabel(item.talla);
+    grouped.set(talla, (grouped.get(talla) ?? 0) + (item.stock ?? 0));
+  });
+  return Array.from(grouped.entries()).map(([talla, stock]) => ({ talla, stock }));
+};
+
 const buildInventoryPayload = (payload: ProductPayload) => {
   const totalStock = (payload.sizeStocks ?? []).reduce((sum, item) => sum + (item.stock ?? 0), 0);
   const talla = (payload.sizeStocks ?? []).map((item) => item.talla).join(', ');
@@ -40,9 +56,10 @@ const writeSizeStockCache = (store: CachedSizeStockStore) => {
 
 const cacheSizeStocks = (productId: number | undefined, sku: string | undefined, sizeStocks: CachedSizeStock[]) => {
   if (!sizeStocks?.length) return;
+  const normalized = normalizeSizeStocks(sizeStocks);
   const store = readSizeStockCache();
-  if (productId != null) store[`id:${productId}`] = sizeStocks;
-  if (sku) store[`sku:${sku}`] = sizeStocks;
+  if (productId != null) store[`id:${productId}`] = normalized;
+  if (sku) store[`sku:${sku}`] = normalized;
   writeSizeStockCache(store);
 };
 
@@ -57,13 +74,15 @@ const getCachedSizeStocks = (product: Product): CachedSizeStock[] => {
 const parseLegacySizeStocks = (product: Product) => {
   const rawTallas = (product.talla ?? '')
     .split(',')
-    .map((item) => item.trim())
+    .map((item) => normalizeSizeLabel(item.trim()))
     .filter(Boolean);
 
   if (rawTallas.length === 0) return [];
 
+  const uniqueTallas = Array.from(new Set(rawTallas));
+
   // Legacy APIs may not provide stock by size. Preserve sizes but do not invent quantities.
-  return rawTallas.map((talla, idx) => ({
+  return uniqueTallas.map((talla, idx) => ({
     id: -(product.id * 100 + idx + 1),
     talla,
     stock: 0,
@@ -73,15 +92,24 @@ const parseLegacySizeStocks = (product: Product) => {
 const normalizeProduct = (product: Product): Product => {
   const current = Array.isArray(product.sizeStocks) ? product.sizeStocks : [];
   if (current.length > 0) {
-    cacheSizeStocks(product.id, product.sku, current.map((s) => ({ talla: s.talla, stock: s.stock })));
-    return product;
+    const normalized = normalizeSizeStocks(current.map((s) => ({ talla: s.talla, stock: s.stock })));
+    cacheSizeStocks(product.id, product.sku, normalized);
+    return {
+      ...product,
+      sizeStocks: normalized.map((s, idx) => ({
+        id: current[idx]?.id ?? -(product.id * 100 + idx + 1),
+        talla: s.talla,
+        stock: s.stock,
+      })),
+    };
   }
 
   const cached = getCachedSizeStocks(product);
   if (cached.length > 0) {
+    const normalizedCached = normalizeSizeStocks(cached);
     return {
       ...product,
-      sizeStocks: cached.map((s, idx) => ({
+      sizeStocks: normalizedCached.map((s, idx) => ({
         id: -(product.id * 100 + idx + 1),
         talla: s.talla,
         stock: s.stock,

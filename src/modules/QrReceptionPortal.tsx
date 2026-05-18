@@ -269,7 +269,7 @@ export const QrReceptionPortal: React.FC = () => {
                             <div key={idx} className="flex items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                               <div>
                                 <p className="text-xs font-black text-slate-900 dark:text-white">{item.product.name}</p>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">Talla: {item.product.talla || 'N/A'}</p>
+                                <p translate="no" className="notranslate text-[9px] font-bold text-slate-400 uppercase">Talla: {item.product.talla || 'N/A'}</p>
                               </div>
                               <span className="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 px-3 py-1 rounded-lg text-[10px] font-black">x{item.quantity}</span>
                             </div>

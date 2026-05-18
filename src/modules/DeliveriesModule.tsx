@@ -340,7 +340,7 @@ export const DeliveriesModule: React.FC<DeliveriesModuleProps> = ({
                             />
                          </div>
                          <p className="font-black text-sm leading-tight mb-1">{p.name}</p>
-                         <p className={`text-[10px] font-bold ${cart[p.id] ? 'text-blue-100' : 'text-slate-400'}`}>Talla: {p.talla || 'N/A'}</p>
+                         <p translate="no" className={`notranslate text-[10px] font-bold ${cart[p.id] ? 'text-blue-100' : 'text-slate-400'}`}>Talla: {p.talla || 'N/A'}</p>
                       </div>
                     ))}
                  </div>

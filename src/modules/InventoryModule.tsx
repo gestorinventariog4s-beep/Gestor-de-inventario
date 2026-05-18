@@ -37,6 +37,12 @@ const ARTICLE_TYPES = [
 ];
 
 const cleanArticleTypeLabel = (label: string) => label.split(' ').slice(1).join(' ') || label;
+const normalizeSizeLabel = (size: string) => {
+  const normalized = (size || '').trim().toUpperCase();
+  if (normalized === 'METRO') return 'M';
+  if (normalized === 'SG') return 'XL';
+  return normalized;
+};
 
 const EMPTY_FORM: ProductPayload = {
   sku: '',
@@ -131,7 +137,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
       photoUrl: product.photoUrl ?? '',
       stockMinimo: product.stockMinimo,
       stockMaximo: product.stockMaximo,
-      sizeStocks: (product.sizeStocks ?? []).map(ss => ({ talla: ss.talla, stock: ss.stock })),
+      sizeStocks: (product.sizeStocks ?? []).map(ss => ({ talla: normalizeSizeLabel(ss.talla), stock: ss.stock })),
       categoryName: product.category?.name ?? 'General',
       categoryDescription: product.category?.description ?? '',
     });
@@ -167,18 +173,20 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   };
 
   const toggleSize = (size: string) => {
-    const exists = form.sizeStocks.some(s => s.talla === size);
+    const normalizedSize = normalizeSizeLabel(size);
+    const exists = form.sizeStocks.some(s => normalizeSizeLabel(s.talla) === normalizedSize);
     if (exists) {
-      setForm(prev => ({ ...prev, sizeStocks: prev.sizeStocks.filter(s => s.talla !== size) }));
+      setForm(prev => ({ ...prev, sizeStocks: prev.sizeStocks.filter(s => normalizeSizeLabel(s.talla) !== normalizedSize) }));
     } else {
-      setForm(prev => ({ ...prev, sizeStocks: [...prev.sizeStocks, { talla: size, stock: 0 }] }));
+      setForm(prev => ({ ...prev, sizeStocks: [...prev.sizeStocks, { talla: normalizedSize, stock: 0 }] }));
     }
   };
 
   const updateSizeStock = (talla: string, stock: number) => {
+    const normalizedTalla = normalizeSizeLabel(talla);
     setForm(prev => ({
       ...prev,
-      sizeStocks: prev.sizeStocks.map(s => s.talla === talla ? { ...s, stock } : s),
+      sizeStocks: prev.sizeStocks.map(s => normalizeSizeLabel(s.talla) === normalizedTalla ? { ...s, talla: normalizedTalla, stock } : s),
     }));
   };
 
@@ -195,10 +203,24 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
       return;
     }
 
+    const normalizedSizeStocks = Object.values(
+      form.sizeStocks.reduce((acc, sizeStock) => {
+        const talla = normalizeSizeLabel(sizeStock.talla);
+        const current = acc[talla]?.stock ?? 0;
+        acc[talla] = { talla, stock: current + (Number(sizeStock.stock) || 0) };
+        return acc;
+      }, {} as Record<string, SizeStockPayload>)
+    );
+
+    const payload: ProductPayload = {
+      ...form,
+      sizeStocks: normalizedSizeStocks,
+    };
+
     if (editingProductId == null) {
-      await onAddProduct(form);
+      await onAddProduct(payload);
     } else {
-      await onEditProduct(editingProductId, form);
+      await onEditProduct(editingProductId, payload);
     }
     closeEditor();
   };
@@ -246,7 +268,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
   }, [products, searchTerm, filterCategory, sortBy, quickView]);
 
   return (
-    <div className="space-y-6 pb-10 animate-fade">
+    <div className="space-y-6 pb-10">
 
       {/* Header Section - COMPACT & BLUE CONTRAST */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -463,7 +485,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                               const fillPct = perSizeMax > 0 ? Math.min((ss.stock / perSizeMax) * 100, 100) : 0;
                               return (
                                 <div key={`${p.id}-row-${ss.talla}`} className="flex items-center gap-2">
-                                  <span className="w-8 text-[9px] font-black text-slate-500 uppercase">{ss.talla}</span>
+                                  <span translate="no" className="notranslate w-8 text-[9px] font-black text-slate-500 uppercase">{ss.talla}</span>
                                   <div className="flex-1 h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                                     <div className={`h-full rounded-full ${color.bar}`} style={{ width: `${fillPct}%` }} />
                                   </div>
@@ -547,7 +569,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                                   <div className="w-6 h-8 bg-slate-100 dark:bg-white/10 rounded overflow-hidden flex flex-col justify-end">
                                     <div className={`w-full rounded ${color.bar}`} style={{ height: `${fillPct}%` }} />
                                   </div>
-                                  <span className="text-[7px] font-black text-slate-400 uppercase">{ss.talla}</span>
+                                  <span translate="no" className="notranslate text-[7px] font-black text-slate-400 uppercase">{ss.talla}</span>
                                 </div>
                               );
                             })}
@@ -588,61 +610,63 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[1000] bg-blue-950/40 backdrop-blur-md p-4 flex items-center justify-center overflow-y-auto"
+            className="fixed inset-0 z-[2147483647] bg-blue-950/45 backdrop-blur-md p-3 md:p-4 flex items-start justify-center overflow-y-auto"
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              initial={{ scale: 0.985, opacity: 0, y: -22 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="w-full max-w-3xl rounded-[2.5rem] bg-white dark:bg-slate-900 border border-white dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] p-8 my-8 relative"
+              exit={{ scale: 0.985, opacity: 0, y: -14 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full max-w-5xl max-h-[94vh] mt-2 md:mt-4 overflow-hidden rounded-[2.2rem] bg-white dark:bg-slate-900 border border-white dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] p-5 md:p-6 relative flex flex-col"
             >
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-4 md:mb-5">
                 <div className="space-y-1">
-                  <h3 className="text-2xl font-black text-blue-950 dark:text-white tracking-tighter">
+                  <h3 className="text-xl md:text-2xl font-black text-blue-950 dark:text-white tracking-tighter leading-tight">
                     {editingProductId == null ? 'Registrar Dotación' : 'Actualizar Producto'}
                   </h3>
                   <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                    Panel de Gestión de Inventario Inteligente
+                    Panel de Gestión de Inventario
                   </p>
                 </div>
                 <button 
                   onClick={closeEditor} 
-                  className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-white/5 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"
+                  className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-white/5 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"
                 >
-                  <X size={20} strokeWidth={3} />
+                  <X size={18} strokeWidth={3} />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex-1 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-5">
                 {/* Left Column: Core Info */}
-                <div className="space-y-5">
-                  <div className="space-y-2">
+                <div className="space-y-3.5">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Identificador SKU</label>
                     <input 
-                      className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
+                      className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
                       placeholder="Ej: D311141001" 
                       value={form.sku} 
                       onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value.toUpperCase() }))} 
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nombre Comercial</label>
                     <input 
-                      className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
+                      className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-blue-950 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
                       placeholder="Ej: Camisa Slim Fit Premium" 
                       value={form.name} 
                       onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} 
                     />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Categoría de Artículo</label>
                     <div className="relative" ref={articleTypeMenuRef}>
                       <button
                         type="button"
                         onClick={() => setArticleTypeMenuOpen((prev) => !prev)}
-                        className="w-full bg-white/90 dark:bg-slate-950/60 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white transition-all cursor-pointer hover:border-blue-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none flex items-center justify-between"
+                        className="w-full bg-white/90 dark:bg-slate-950/60 border border-blue-100 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-blue-950 dark:text-white transition-all cursor-pointer hover:border-blue-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none flex items-center justify-between"
                         aria-haspopup="listbox"
                         aria-expanded={articleTypeMenuOpen}
                       >
@@ -665,7 +689,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                             className="absolute z-30 mt-2 w-full rounded-2xl border border-blue-200 dark:border-white/10 bg-white dark:bg-slate-950 shadow-[0_20px_45px_-20px_rgba(37,99,235,0.45)] overflow-hidden"
                             role="listbox"
                           >
-                            <div className="max-h-64 overflow-y-auto py-1.5">
+                            <div className="max-h-56 overflow-y-auto py-1">
                               {ARTICLE_TYPES.map((type) => {
                                 const isSelected = type.id === form.type;
                                 return (
@@ -673,7 +697,7 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                                     key={type.id}
                                     type="button"
                                     onClick={() => selectArticleType(type.id)}
-                                    className={`w-full text-left px-4 py-2.5 text-sm font-black transition-colors flex items-center gap-2.5 ${
+                                    className={`w-full text-left px-3.5 py-2 text-sm font-black transition-colors flex items-center gap-2 ${
                                       isSelected
                                         ? 'bg-blue-600 text-white'
                                         : 'text-blue-900 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-white/5'
@@ -701,20 +725,20 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Color</label>
                       <input 
-                        className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white outline-none" 
+                        className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-blue-950 dark:text-white outline-none" 
                         placeholder="Ej: Azul Marino" 
                         value={form.color} 
                         onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))} 
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Grupo</label>
                       <input 
-                        className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-blue-950 dark:text-white outline-none" 
+                        className="w-full bg-blue-50/50 dark:bg-white/5 border border-blue-100 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-blue-950 dark:text-white outline-none" 
                         placeholder="Ej: Operativos" 
                         value={form.categoryName} 
                         onChange={(e) => setForm((prev) => ({ ...prev, categoryName: e.target.value }))} 
@@ -724,21 +748,24 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                 </div>
 
                 {/* Right Column: Sizes with per-size stock & Global Min/Max */}
-                <div className="space-y-5">
+                <div className="space-y-3.5">
                   {/* Size selection */}
-                  <div className="space-y-3 bg-blue-50/30 dark:bg-white/5 p-6 rounded-[2rem] border border-blue-100 dark:border-white/10">
+                  <div className="space-y-2.5 bg-blue-50/30 dark:bg-white/5 p-4 rounded-2xl border border-blue-100 dark:border-white/10">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400 flex items-center gap-2">
                       <List size={14} /> Tallas Disponibles
                     </label>
-                    <div className="flex flex-wrap gap-2.5">
-                      {ARTICLE_TYPES.find(t => t.id === form.type)?.sizes.map(size => {
-                        const isSelected = form.sizeStocks.some(s => s.talla === size);
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(
+                        new Set((ARTICLE_TYPES.find(t => t.id === form.type)?.sizes ?? []).map((size) => normalizeSizeLabel(size)))
+                      ).map(size => {
+                        const isSelected = form.sizeStocks.some(s => normalizeSizeLabel(s.talla) === size);
                         return (
                           <button
                             key={size}
                             onClick={() => toggleSize(size)}
                             type="button"
-                            className={`relative overflow-hidden px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                            translate="no"
+                            className={`notranslate relative overflow-hidden min-w-[52px] px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                               isSelected
                                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none scale-105 ring-2 ring-blue-200/80 dark:ring-blue-400/20'
                                 : 'bg-white dark:bg-white/10 text-blue-500 border border-blue-100 dark:border-transparent hover:border-blue-300 hover:bg-blue-50/80 dark:hover:bg-blue-500/10'
@@ -754,27 +781,28 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
 
                   {/* Per-size stock inputs */}
                   {form.sizeStocks.length > 0 && (
-                    <div className="space-y-3 bg-slate-50 dark:bg-white/5 p-5 rounded-[2rem] border border-slate-100 dark:border-white/10">
+                    <div className="space-y-2.5 bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/10">
                       <div className="flex items-center justify-between">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Cantidad por Talla</label>
                         <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100">
                           Total: {totalStock(form.sizeStocks)} U
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 max-h-40 overflow-y-auto pr-1">
                         {form.sizeStocks.map((ss) => {
+                          const normalizedLabel = normalizeSizeLabel(ss.talla);
                           const color = getSizeBarColor(ss.stock, form.stockMinimo, form.stockMaximo, form.sizeStocks.length);
                           return (
-                            <div key={`input-${ss.talla}`} className={`flex items-center gap-3 bg-white dark:bg-white/5 rounded-2xl px-4 py-3 border ${color.border}`}>
-                              <span className="text-[11px] font-black text-blue-700 dark:text-blue-300 w-10 shrink-0 uppercase">{ss.talla}</span>
+                            <div key={`input-${normalizedLabel}`} className={`flex items-center gap-2 bg-white dark:bg-white/5 rounded-xl px-3 py-2 border ${color.border}`}>
+                              <span translate="no" className="notranslate text-[10px] font-black text-blue-700 dark:text-blue-300 w-8 shrink-0 uppercase">{normalizedLabel}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={ss.stock}
-                                onChange={(e) => updateSizeStock(ss.talla, Math.max(0, Number(e.target.value)))}
+                                onChange={(e) => updateSizeStock(normalizedLabel, Math.max(0, Number(e.target.value)))}
                                 className={`w-full bg-transparent border-none outline-none text-sm font-black text-center ${color.text}`}
                               />
-                              <div className="w-1.5 h-6 rounded-full shrink-0 overflow-hidden bg-slate-100">
+                              <div className="w-1.5 h-5 rounded-full shrink-0 overflow-hidden bg-slate-100">
                                 <div
                                   className={`w-full rounded-full ${color.bar} transition-all`}
                                   style={{
@@ -790,63 +818,64 @@ export const InventoryModule: React.FC<InventoryManagerProps> = ({
                   )}
 
                   {/* Global min/max */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Mínimo Global</label>
                       <input
                         type="number"
                         min={1}
-                        className="w-full bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20 rounded-2xl px-4 py-4 text-sm font-black text-rose-600 text-center"
+                        className="w-full bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20 rounded-xl px-4 py-3 text-sm font-black text-rose-600 text-center"
                         value={form.stockMinimo}
                         onChange={(e) => setForm(prev => ({ ...prev, stockMinimo: Number(e.target.value) }))}
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Máximo Global</label>
                       <input
                         type="number"
                         min={2}
-                        className="w-full bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl px-4 py-4 text-sm font-black text-emerald-600 text-center"
+                        className="w-full bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/20 rounded-xl px-4 py-3 text-sm font-black text-emerald-600 text-center"
                         value={form.stockMaximo}
                         onChange={(e) => setForm(prev => ({ ...prev, stockMaximo: Number(e.target.value) }))}
                       />
                     </div>
                   </div>
 
-                  <div className="relative group overflow-hidden rounded-[2rem] border-2 border-dashed border-blue-200 dark:border-white/10 bg-blue-50/40 dark:bg-white/5 p-4 transition-all hover:border-blue-400">
-                    <div className="flex items-center justify-between mb-3">
+                  <div className="relative group overflow-hidden rounded-2xl border-2 border-dashed border-blue-200 dark:border-white/10 bg-blue-50/40 dark:bg-white/5 p-3 transition-all hover:border-blue-400">
+                    <div className="flex items-center justify-between mb-2.5">
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Imagen del Producto</p>
-                      <label className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-lg shadow-blue-100 dark:shadow-none hover:bg-blue-500 active:scale-95 transition-all">
+                      <label className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest cursor-pointer shadow-lg shadow-blue-100 dark:shadow-none hover:bg-blue-500 active:scale-95 transition-all">
                         <ImagePlus size={14} /> Seleccionar
                         <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                       </label>
                     </div>
                     {form.photoUrl ? (
-                      <div className="relative h-32 w-full">
+                      <div className="relative h-24 w-full">
                         <img src={form.photoUrl} alt="preview" className="w-full h-full object-contain rounded-xl" />
                         <button onClick={() => setForm(p => ({ ...p, photoUrl: '' }))} className="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-lg shadow-lg"><X size={12} /></button>
                       </div>
                     ) : (
-                      <div className="h-32 flex flex-col items-center justify-center gap-2 text-blue-300">
-                        <Package size={32} className="opacity-20" />
+                      <div className="h-24 flex flex-col items-center justify-center gap-1.5 text-blue-300">
+                        <Package size={24} className="opacity-20" />
                         <span className="text-[9px] font-black uppercase tracking-widest opacity-50">Sin Archivo</span>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
+              </div>
 
-              <div className="flex gap-4 mt-10">
+              <div className="flex gap-3 mt-4 pt-3 border-t border-blue-100/80 dark:border-white/10 bg-white dark:bg-slate-900">
                 <button 
                   onClick={closeEditor} 
-                  className="flex-1 rounded-2xl border border-blue-100 dark:border-white/10 px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 hover:bg-blue-50 transition-all"
+                  className="flex-1 rounded-xl border border-blue-100 dark:border-white/10 px-6 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 hover:bg-blue-50 transition-all"
                 >
                   Cancelar
                 </button>
                 <button 
                   onClick={() => void handleSaveProduct()} 
                   disabled={isLoading} 
-                  className="flex-[2] rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-blue-200 dark:shadow-none disabled:opacity-60 transition-all active:scale-[0.98]"
+                  className="flex-[2] rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-6 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-blue-200 dark:shadow-none disabled:opacity-60 transition-all active:scale-[0.98]"
                 >
                   {editingProductId == null ? 'Finalizar Registro' : 'Actualizar Cambios'}
                 </button>
